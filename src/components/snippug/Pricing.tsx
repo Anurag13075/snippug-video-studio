@@ -106,10 +106,10 @@ export function Pricing() {
                   🎉 You already own SnipPug Pro!
                 </p>
                 <Link
-                  to="/studio"
+                  to="/app"
                   className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-key"
                 >
-                  Enter Studio
+                  Enter App
                 </Link>
               </div>
             ) : (
@@ -123,11 +123,11 @@ export function Pricing() {
                   <span className="text-xs font-normal opacity-80">(Polar)</span>
                 </button>
                 <Link
-                  to="/studio"
+                  to="/app"
                   onClick={() => play("click")}
                   className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-2xl border-[1.5px] border-border bg-card text-sm font-semibold shadow-key pressable hover:bg-secondary"
                 >
-                  Use Free Studio First
+                  Use Free App First
                 </Link>
               </>
             )}

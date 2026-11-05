@@ -29,7 +29,7 @@ export function LoginPage() {
   // If already signed in or redirected with access token in hash, handle it
   useEffect(() => {
     if (user) {
-      void navigate({ to: "/studio" });
+      void navigate({ to: "/app" });
       return;
     }
 
@@ -38,7 +38,7 @@ export function LoginPage() {
       void handleAuthCallback().then((session) => {
         if (session) {
           play("fanfare");
-          void navigate({ to: "/studio" });
+          void navigate({ to: "/app" });
         } else {
           setProcessing(false);
         }
@@ -61,7 +61,7 @@ export function LoginPage() {
     play("click");
     toast.info("Entering SnipPug Studio as guest creator...", { duration: 3000 });
     setTimeout(() => {
-      void navigate({ to: "/studio" });
+      void navigate({ to: "/app" });
     }, 600);
   };
 
@@ -207,8 +207,8 @@ export function LoginPage() {
         <div className="mx-auto mt-6 w-full max-w-sm space-y-3 text-center text-xs text-[#8E867A]">
           <p>
             Want to try without account?{" "}
-            <Link to="/studio" className="font-semibold text-white hover:underline">
-              Enter Studio as Guest
+            <Link to="/app" className="font-semibold text-white hover:underline">
+              Enter App as Guest
             </Link>
           </p>
 

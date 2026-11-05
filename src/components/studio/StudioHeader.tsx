@@ -13,13 +13,10 @@ export function StudioHeader({ onExport, exporting }: StudioHeaderProps) {
       {/* Left: SnipPug Mascot + Wordmark */}
       <div className="flex items-center gap-3">
         <Link
-          to="/"
+          to="/app"
           className="flex items-center gap-2.5 transition-opacity hover:opacity-95"
         >
           <SnipPugLogo size="sm" withStudioBadge={false} />
-          <span className="text-base font-bold tracking-tight text-white">
-            SnipPug
-          </span>
         </Link>
       </div>
 

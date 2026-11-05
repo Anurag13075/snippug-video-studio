@@ -19,10 +19,10 @@ function AuthCallbackPage() {
       try {
         const session = await handleAuthCallback();
         if (session) {
-          void navigate({ to: "/studio" });
+          void navigate({ to: "/app" });
         } else {
           // If no hash params, redirect back home or studio
-          void navigate({ to: "/studio" });
+          void navigate({ to: "/app" });
         }
       } catch (err) {
         console.error("Auth callback failed", err);

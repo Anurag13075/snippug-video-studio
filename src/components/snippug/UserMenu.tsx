@@ -161,7 +161,7 @@ export function UserMenu({ onGlass }: { onGlass: boolean }) {
 
         <DropdownMenuItem asChild>
           <Link
-            to="/studio"
+            to="/app"
             onClick={() => play("click")}
             className="flex cursor-pointer items-center rounded-lg px-2.5 py-2 text-sm font-medium"
           >

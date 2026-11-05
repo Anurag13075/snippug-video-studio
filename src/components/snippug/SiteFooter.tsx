@@ -10,7 +10,7 @@ export function SiteFooter() {
         <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
           <a href="#how-it-works" className="hover:text-foreground">How it works</a>
           <a href="#puggy" className="hover:text-foreground">Puggy</a>
-          <a href="/studio" className="hover:text-foreground">Studio</a>
+          <a href="/app" className="hover:text-foreground">App</a>
           <a href="#pricing" className="hover:text-foreground">Pricing</a>
           <a href="#faq" className="hover:text-foreground">FAQ</a>
         </nav>

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Puggy", href: "#puggy" },
-  { label: "Studio", href: "/studio" },
+  { label: "App", href: "/app" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ];
@@ -110,13 +110,13 @@ export function SiteHeader() {
           {/* User Menu with Google OAuth avatar or Sign in */}
           <UserMenu onGlass={onGlass} />
 
-          {/* Launch Studio CTA */}
+          {/* Launch App CTA */}
           <Link
-            to="/studio"
+            to="/app"
             onClick={() => play("click")}
             className="inline-flex h-10 items-center rounded-full bg-white px-5 text-sm font-semibold text-cocoa shadow-[0_6px_20px_-6px_rgba(15,30,15,0.45)] transition-all hover:-translate-y-px"
           >
-            Open Studio
+            Open App
           </Link>
         </div>
       </div>
