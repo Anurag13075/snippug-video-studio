@@ -1,209 +1,220 @@
-import { Puggy } from "@/components/snippug/Puggy";
-import { useSound } from "@/components/snippug/sound";
-import { ASPECTS, SAMPLES, type Aspect, type ReframePreset, fmt } from "./useStudioState";
+import { useRef } from "react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { type MediaItem } from "./useStudioState";
 
 interface LeftSidebarProps {
-  src: string | null;
-  fileName: string;
-  duration: number;
-  aspect: Aspect;
-  setAspect: (a: Aspect) => void;
-  reframe: ReframePreset;
-  setReframe: (r: ReframePreset) => void;
+  activeTab: "media" | "text" | "elements" | "audio" | "uploads";
+  onTabChange: (tab: "media" | "text" | "elements" | "audio" | "uploads") => void;
+  mediaItems: MediaItem[];
+  selectedMediaId: string;
+  onSelectMedia: (item: MediaItem) => void;
   onFileUpload: (file: File) => void;
-  onSampleLoad: (fileUrl: string, title: string) => void;
 }
 
 export function LeftSidebar({
-  src,
-  fileName,
-  duration,
-  aspect,
-  setAspect,
-  reframe,
-  setReframe,
+  activeTab,
+  onTabChange,
+  mediaItems,
+  selectedMediaId,
+  onSelectMedia,
   onFileUpload,
-  onSampleLoad,
 }: LeftSidebarProps) {
-  const { play } = useSound();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const tabs: Array<{
+    id: "media" | "text" | "elements" | "audio" | "uploads";
+    label: string;
+    icon: React.ReactNode;
+  }> = [
+    {
+      id: "media",
+      label: "Media",
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+          <line x1="7" y1="2" x2="7" y2="22" />
+          <line x1="17" y1="2" x2="17" y2="22" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <line x1="2" y1="7" x2="7" y2="7" />
+          <line x1="2" y1="17" x2="7" y2="17" />
+          <line x1="17" y1="17" x2="22" y2="17" />
+          <line x1="17" y1="7" x2="22" y2="7" />
+        </svg>
+      ),
+    },
+    {
+      id: "text",
+      label: "Text",
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="4 7 4 4 20 4 20 7" />
+          <line x1="9" y1="20" x2="15" y2="20" />
+          <line x1="12" y1="4" x2="12" y2="20" />
+        </svg>
+      ),
+    },
+    {
+      id: "elements",
+      label: "Elements",
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+        </svg>
+      ),
+    },
+    {
+      id: "audio",
+      label: "Audio",
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="16" r="3" />
+        </svg>
+      ),
+    },
+    {
+      id: "uploads",
+      label: "Uploads",
+      icon: (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+      ),
+    },
+  ];
 
   return (
-    <aside className="flex h-full w-[290px] shrink-0 flex-col gap-6 overflow-y-auto border-r border-[#3a3228] bg-[#1d1813] p-4 scrollbar-thin">
-      {/* Media Bin */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-bold uppercase tracking-wider text-[#A89F91]">
-            Media Bin
-          </label>
-          <span className="text-[11px] text-[#7A7163]">100% on-device</span>
-        </div>
+    <div className="flex h-full w-[295px] shrink-0 flex-col border-r border-[#262330] bg-[#131118]">
+      {/* Top Tabs */}
+      <div className="flex items-center justify-between border-b border-[#262330] px-2 pt-2">
+        {tabs.map((tab) => {
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onTabChange(tab.id)}
+              className={cn(
+                "relative flex flex-col items-center gap-1 px-2.5 pb-2 text-[11px] font-medium transition-colors",
+                active ? "text-[#7C3AED]" : "text-[#A19EAA] hover:text-white",
+              )}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {active && (
+                <div className="absolute bottom-0 left-1 right-1 h-0.5 rounded-full bg-[#7C3AED]" />
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-        {src ? (
-          <div className="relative overflow-hidden rounded-xl border border-[#3a3228] bg-[#231E18] p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-black/40 text-lg">
-                🎬
-              </div>
-              <div className="min-w-0 flex-1 space-y-0.5">
-                <div className="truncate text-xs font-bold text-[#F5E6CB]">
-                  {fileName}
-                </div>
-                <div className="text-[10px] text-[#A89F91]">
-                  Duration: {fmt(duration)}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Upload Button */}
-        <label className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-[#5E5649] bg-[#231E18]/60 px-4 text-xs font-bold text-[#F5E6CB] transition-all hover:border-[#E6C395] hover:bg-[#2C241B]">
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
-          </svg>
-          <span>Choose / Drop Video</span>
+      {/* Panel Content */}
+      <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
+        {/* Upload Dropzone */}
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const f = e.dataTransfer.files?.[0];
+            if (f) onFileUpload(f);
+          }}
+          className="group flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[#262330] bg-[#1A1722]/50 p-5 text-center transition-all hover:border-[#7C3AED]/70 hover:bg-[#1A1722]"
+        >
           <input
+            ref={fileInputRef}
             type="file"
-            accept="video/mp4,video/webm,video/quicktime,video/*"
+            accept="video/*,audio/*,image/*"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) onFileUpload(f);
-              e.currentTarget.value = "";
             }}
           />
-        </label>
+          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-[#131118] text-[#A19EAA] group-hover:text-[#7C3AED]">
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          </div>
+          <p className="text-xs font-semibold text-white">
+            Drop your video, image or audio here
+          </p>
+          <p className="mt-0.5 text-[11px] text-[#A19EAA]">
+            or <span className="text-[#8B5CF6] underline">click to browse</span>
+          </p>
+          <p className="mt-2 text-[10px] text-[#6B6778]">
+            MP4, MOV, WEBM, MP3, WAV · Max 500MB
+          </p>
+        </div>
 
-        {/* Quick sample clips */}
-        <div className="space-y-1.5">
-          <span className="text-[11px] font-medium text-[#7A7163]">
-            Or load viral demo:
-          </span>
-          <div className="grid grid-cols-1 gap-1.5">
-            {SAMPLES.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => {
-                  play("pop");
-                  onSampleLoad(s.file, s.title);
-                }}
-                className="flex items-center gap-2 rounded-lg border border-[#3a3228] bg-[#231E18] px-2.5 py-1.5 text-left text-xs font-medium text-[#F5E6CB] transition-all hover:border-[#E6C395] hover:bg-[#2C241B]"
-              >
-                <span>{s.emoji}</span>
-                <span className="truncate">{s.title}</span>
-              </button>
-            ))}
+        {/* Your Media Section */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-white">Your media</span>
+            <button
+              type="button"
+              onClick={() => toast.info("Displaying all project media")}
+              className="text-[11px] text-[#A19EAA] hover:text-white"
+            >
+              View all →
+            </button>
+          </div>
+
+          {/* 2x3 Grid */}
+          <div className="grid grid-cols-2 gap-2">
+            {mediaItems.slice(0, 5).map((item) => {
+              const isSelected = selectedMediaId === item.id;
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => onSelectMedia(item)}
+                  className={cn(
+                    "group relative aspect-video cursor-pointer overflow-hidden rounded-xl border border-[#262330] bg-[#1A1722] transition-all hover:scale-[1.02]",
+                    isSelected && "ring-2 ring-[#7C3AED] border-transparent shadow-lg shadow-[#7C3AED]/20",
+                  )}
+                >
+                  <img
+                    src={item.thumbnail}
+                    alt={item.title}
+                    className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
+                  />
+                  {/* Duration Pill */}
+                  <div className="absolute bottom-1.5 right-1.5 rounded-md bg-black/75 px-1.5 py-0.5 font-mono text-[9px] font-medium text-white backdrop-blur-sm">
+                    {item.durationStr}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Plus Card "+ More" */}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="flex aspect-video cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#262330] bg-[#1A1722]/60 text-center transition-all hover:border-[#7C3AED] hover:bg-[#1A1722]"
+            >
+              <span className="text-base font-light text-[#A19EAA]">+</span>
+              <span className="text-[10px] font-medium text-[#A19EAA]">More</span>
+            </div>
           </div>
         </div>
       </div>
-
-      <div className="h-px bg-[#3a3228]" />
-
-      {/* Aspect Ratio Selector */}
-      <div className="space-y-3">
-        <label className="text-xs font-bold uppercase tracking-wider text-[#A89F91]">
-          Target Aspect Ratio
-        </label>
-        <div className="grid grid-cols-1 gap-2">
-          {ASPECTS.map((a) => {
-            const active = aspect === a.id;
-            return (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => {
-                  play("click");
-                  setAspect(a.id);
-                }}
-                className={cn(
-                  "flex items-center justify-between rounded-xl border p-2.5 text-left transition-all",
-                  active
-                    ? "border-[#E6C395] bg-[#2C241B] shadow-key"
-                    : "border-[#3a3228] bg-[#231E18] hover:border-[#5E5649]",
-                )}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-lg">
-                    {a.id === "9:16" ? "📱" : a.id === "1:1" ? "🔲" : "🖥️"}
-                  </span>
-                  <div>
-                    <div className="text-xs font-bold text-[#F5E6CB]">
-                      {a.label}
-                    </div>
-                    <div className="text-[10px] text-[#A89F91]">{a.hint}</div>
-                  </div>
-                </div>
-                {active && (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#E6C395] text-[10px] text-[#1a1612]">
-                    ✓
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="h-px bg-[#3a3228]" />
-
-      {/* Re-frame Presets */}
-      <div className="space-y-3">
-        <label className="text-xs font-bold uppercase tracking-wider text-[#A89F91]">
-          Re-frame Staging
-        </label>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { id: "blurred" as const, label: "Blurred", icon: "🌫️" },
-            { id: "center" as const, label: "Center", icon: "🎯" },
-            { id: "split" as const, label: "Split", icon: "📑" },
-          ].map((r) => {
-            const active = reframe === r.id;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => {
-                  play("click");
-                  setReframe(r.id);
-                }}
-                className={cn(
-                  "flex flex-col items-center gap-1 rounded-xl border p-2 text-center transition-all",
-                  active
-                    ? "border-[#E6C395] bg-[#2C241B] text-[#E6C395] shadow-key"
-                    : "border-[#3a3228] bg-[#231E18] text-[#A89F91] hover:border-[#5E5649]",
-                )}
-              >
-                <span className="text-sm">{r.icon}</span>
-                <span className="text-[10px] font-bold">{r.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Puggy Assistant Card */}
-      <div className="mt-auto rounded-2xl border border-[#3a3228] bg-gradient-to-b from-[#231E18] to-[#16120e] p-3 text-center">
-        <div className="mx-auto h-16 w-16">
-          <Puggy mood="listening" className="h-full w-full" />
-        </div>
-        <p className="mt-1 text-xs font-semibold text-[#F5E6CB]">
-          Puggy is listening
-        </p>
-        <p className="mt-0.5 text-[10px] text-[#A89F91]">
-          Tap I & O to select your viral hook.
-        </p>
-      </div>
-    </aside>
+    </div>
   );
 }

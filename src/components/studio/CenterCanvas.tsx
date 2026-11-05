@@ -1,14 +1,5 @@
-import { useEffect } from "react";
-import { Puggy } from "@/components/snippug/Puggy";
-import { Keycap } from "@/components/snippug/Keycap";
-import { Button } from "@/components/ui/button";
-import {
-  type Aspect,
-  type CaptionState,
-  type ReframePreset,
-  drawComposed,
-  fmt,
-} from "./useStudioState";
+import { useEffect, useRef } from "react";
+import { type Aspect, type CaptionState, drawComposed, fmtTimecode } from "./useStudioState";
 import { cn } from "@/lib/utils";
 
 interface CenterCanvasProps {
@@ -21,20 +12,13 @@ interface CenterCanvasProps {
   playing: boolean;
   setPlaying: (p: boolean) => void;
   aspect: Aspect;
-  reframe: ReframePreset;
+  setAspect: (a: Aspect) => void;
+  resolution: "1080p" | "4K" | "720p";
+  setResolution: (r: "1080p" | "4K" | "720p") => void;
   caption: CaptionState;
-  watermark: boolean;
-  exporting: boolean;
-  exportProgress: number;
-  onCancelExport: () => void;
   onLoadedMetadata: () => void;
   togglePlay: () => void;
-  markIn: () => void;
-  markOut: () => void;
-  nudge: (delta: number) => void;
-  dragOver: boolean;
-  setDragOver: (d: boolean) => void;
-  onFileUpload: (file: File) => void;
+  seekTo: (t: number) => void;
 }
 
 export function CenterCanvas({
@@ -47,22 +31,17 @@ export function CenterCanvas({
   playing,
   setPlaying,
   aspect,
-  reframe,
+  setAspect,
+  resolution,
+  setResolution,
   caption,
-  watermark,
-  exporting,
-  exportProgress,
-  onCancelExport,
   onLoadedMetadata,
   togglePlay,
-  markIn,
-  markOut,
-  nudge,
-  dragOver,
-  setDragOver,
-  onFileUpload,
+  seekTo,
 }: CenterCanvasProps) {
-  // Continuous render loop into preview canvas
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Render loop to sync video element with canvas
   useEffect(() => {
     let raf = 0;
     let lastSet = -1;
@@ -72,8 +51,8 @@ export function CenterCanvas({
       const c = canvasRef.current;
 
       if (v && c && src && v.readyState >= 2) {
-        const pw = aspect === "9:16" ? 480 : aspect === "1:1" ? 640 : 854;
-        const ph = aspect === "9:16" ? 854 : aspect === "1:1" ? 640 : 480;
+        const pw = aspect === "9:16" ? 540 : aspect === "1:1" ? 720 : 960;
+        const ph = aspect === "9:16" ? 960 : aspect === "1:1" ? 720 : 540;
 
         if (c.width !== pw || c.height !== ph) {
           c.width = pw;
@@ -82,157 +61,173 @@ export function CenterCanvas({
 
         const ctx = c.getContext("2d");
         if (ctx) {
-          drawComposed(ctx, v, pw, ph, aspect, caption, watermark);
+          drawComposed(ctx, v, pw, ph, aspect, caption, false);
         }
 
         const t = v.currentTime;
-        if (Math.abs(t - lastSet) > 0.04) {
+        if (Math.abs(t - lastSet) > 0.05) {
           lastSet = t;
           setTime(t);
-          if (!v.paused && duration > 0) setPlaying(true);
         }
       }
+
       raf = requestAnimationFrame(loop);
     };
 
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [src, aspect, reframe, caption, watermark, duration, videoRef, canvasRef, setTime, setPlaying]);
+  }, [src, aspect, caption, setTime, videoRef, canvasRef]);
+
+  const toggleFullscreen = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      void el.requestFullscreen();
+    }
+  };
+
+  const handleTimelineScrub = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    seekTo(pct * (duration || 45));
+  };
+
+  const progressPct = duration > 0 ? (time / duration) * 100 : 0;
 
   return (
-    <main
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        const f = e.dataTransfer.files?.[0];
-        if (f) onFileUpload(f);
-      }}
-      className={cn(
-        "relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-[#14100c] p-6 transition-colors",
-        dragOver && "bg-[#231E18]/80 outline-2 outline-dashed outline-[#E6C395]",
-      )}
+    <div
+      ref={containerRef}
+      className="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-[#0B0A0F] p-4"
     >
-      {/* Hidden source video */}
-      {src && (
-        <video
-          ref={videoRef}
-          src={src}
-          className="pointer-events-none absolute h-px w-px opacity-0"
-          playsInline
-          preload="auto"
-          onLoadedMetadata={onLoadedMetadata}
-          onEnded={() => setPlaying(false)}
-          onPause={() => setPlaying(false)}
-          onPlay={() => setPlaying(true)}
-        />
-      )}
+      {/* Hidden background Video element for media capture */}
+      <video
+        ref={videoRef}
+        src={src ?? undefined}
+        playsInline
+        muted={false}
+        crossOrigin="anonymous"
+        onLoadedMetadata={onLoadedMetadata}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        className="hidden"
+      />
 
-      {/* Main Canvas Area */}
-      {!src ? (
-        <div className="flex max-w-md flex-col items-center justify-center rounded-3xl border-2 border-dashed border-[#3a3228] bg-[#1a1612]/60 p-10 text-center">
-          <div className="h-24 w-24">
-            <Puggy mood="listening" className="h-full w-full" />
-          </div>
-          <h3 className="mt-4 text-base font-bold text-[#F5E6CB]">
-            Drop any video onto SnipPug Studio
-          </h3>
-          <p className="mt-1 text-xs text-[#A89F91]">
-            MP4, WebM, MOV. Instant local processing. Zero video uploads.
-          </p>
+      {/* Main Preview Phone Container */}
+      <div className="relative flex max-h-[82vh] w-auto flex-col items-center justify-center">
+        {/* Aspect & Resolution Badges */}
+        <div className="absolute -top-11 left-0 right-0 z-10 flex items-center justify-between px-1">
+          {/* Aspect Badge */}
+          <button
+            type="button"
+            onClick={() => {
+              const next: Aspect = aspect === "9:16" ? "1:1" : aspect === "1:1" ? "16:9" : "9:16";
+              setAspect(next);
+            }}
+            className="flex items-center gap-1.5 rounded-xl border border-[#262330] bg-[#131118] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:border-[#7C3AED]/50"
+          >
+            <span>📱</span>
+            <span>{aspect}</span>
+          </button>
+
+          {/* Resolution Dropdown */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = resolution === "1080p" ? "4K" : resolution === "4K" ? "720p" : "1080p";
+              setResolution(next);
+            }}
+            className="flex items-center gap-1.5 rounded-xl border border-[#262330] bg-[#131118] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:border-[#7C3AED]/50"
+          >
+            <span>{resolution}</span>
+            <svg className="h-3.5 w-3.5 text-[#6B6778]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
         </div>
-      ) : (
-        <div className="relative flex flex-col items-center">
-          {/* Canvas Box */}
-          <div
+
+        {/* Video Canvas Phone Frame */}
+        <div className="group relative aspect-[9/16] h-[66vh] max-h-[620px] overflow-hidden rounded-3xl border border-[#262330] bg-black shadow-2xl">
+          <canvas
+            ref={canvasRef}
+            className="h-full w-full object-cover"
+          />
+
+          {/* Big Center Play / Pause Overlay Button */}
+          <button
+            type="button"
+            onClick={togglePlay}
+            aria-label={playing ? "Pause video" : "Play video"}
             className={cn(
-              "relative overflow-hidden rounded-3xl border-[2px] border-[#3a3228] bg-[#181310] shadow-pop transition-all",
-              aspect === "9:16" && "h-[62vh] max-h-[600px] w-auto aspect-[9/16]",
-              aspect === "1:1" && "aspect-square w-full max-w-[500px]",
-              aspect === "16:9" && "aspect-video w-full max-w-[760px]",
+              "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
+              playing ? "opacity-0 hover:opacity-100" : "opacity-100",
             )}
           >
-            <canvas ref={canvasRef} className="h-full w-full" />
-
-            {/* Subtle grid crop guides */}
-            <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-20">
-              <div className="border-b border-r border-white/40" />
-              <div className="border-b border-r border-white/40" />
-              <div className="border-b border-white/40" />
-              <div className="border-b border-r border-white/40" />
-              <div className="border-b border-r border-white/40" />
-              <div className="border-b border-white/40" />
-              <div className="border-r border-white/40" />
-              <div className="border-r border-white/40" />
-              <div />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/20 bg-black/60 text-white backdrop-blur-md shadow-2xl transition-transform hover:scale-110 active:scale-95">
+              {playing ? (
+                <svg className="h-6 w-6 fill-white" viewBox="0 0 24 24">
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+              ) : (
+                <svg className="h-6 w-6 translate-x-0.5 fill-white" viewBox="0 0 24 24">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+              )}
             </div>
+          </button>
 
-            {/* Exporting Progress Overlay */}
-            {exporting && (
-              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-[#14100c]/85 p-6 text-center backdrop-blur-sm">
-                <div className="h-20 w-20">
-                  <Puggy mood="focus" className="h-full w-full" />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="text-sm font-bold text-[#F5E6CB]">
-                    Recording clip frame-by-frame...
-                  </h4>
-                  <p className="text-xs text-[#A89F91]">
-                    {Math.round(exportProgress * 100)}% complete · Keep tab in front
-                  </p>
-                </div>
-                <div className="h-2 w-52 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#E6C395] to-[#D9B183] transition-all duration-100"
-                    style={{ width: `${Math.round(exportProgress * 100)}%` }}
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={onCancelExport}
-                  className="mt-2 border-white/20 bg-white/5 text-xs text-[#F5E6CB] hover:bg-white/10"
-                >
-                  Cancel Export
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Quick canvas control bar */}
-          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[#3a3228] bg-[#1d1813]/90 px-3 py-1.5 backdrop-blur-md shadow-key">
-            <Keycap onClick={() => nudge(-1)} title="Jump 1s back (J)">
-              ⏪ J
-            </Keycap>
-            <Keycap
+          {/* Integrated Preview Transport Controls Bar */}
+          <div className="absolute bottom-0 left-0 right-0 flex items-center gap-3 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-4 py-3 text-xs text-white">
+            {/* Play/Pause */}
+            <button
+              type="button"
               onClick={togglePlay}
-              active={playing}
-              title="Play / Pause (Space)"
-              className="min-w-[70px]"
+              className="text-white hover:text-[#7C3AED]"
             >
-              {playing ? "⏸ Pause" : "▶ Play"}
-            </Keycap>
-            <Keycap onClick={() => nudge(1)} title="Jump 1s forward (L)">
-              L ⏩
-            </Keycap>
-            <span className="mx-1 h-5 w-px bg-[#3a3228]" />
-            <Keycap onClick={markIn} title="Mark In point (I)">
-              [ I ]
-            </Keycap>
-            <Keycap onClick={markOut} title="Mark Out point (O)">
-              [ O ]
-            </Keycap>
-            <span className="mx-1 h-5 w-px bg-[#3a3228]" />
-            <div className="font-mono text-xs text-[#E6C395]">
-              {fmt(time)} <span className="text-[#5E5649]">/</span> {fmt(duration)}
+              {playing ? (
+                <svg className="h-4 w-4 fill-white" viewBox="0 0 24 24">
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4 fill-white" viewBox="0 0 24 24">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+              )}
+            </button>
+
+            {/* Scrub Progress Track */}
+            <div
+              onClick={handleTimelineScrub}
+              className="relative flex-1 h-1.5 cursor-pointer rounded-full bg-white/25 transition-all hover:h-2"
+            >
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-[#7C3AED]"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
+
+            {/* Timecode 00:00 / 00:45 */}
+            <span className="font-mono text-[11px] font-medium text-white/90">
+              {fmtTimecode(time, duration || 45)}
+            </span>
+
+            {/* Fullscreen */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              aria-label="Fullscreen"
+              className="text-white/80 hover:text-white"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+              </svg>
+            </button>
           </div>
         </div>
-      )}
-    </main>
+      </div>
+    </div>
   );
 }

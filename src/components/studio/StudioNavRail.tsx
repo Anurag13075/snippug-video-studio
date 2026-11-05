@@ -1,208 +1,295 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { SnipPugLogo } from "@/components/snippug/SnipPugLogo";
-import { useAuth } from "@/lib/auth";
-import { createCheckoutUrl } from "@/lib/polar";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { openPolarCheckout } from "@/lib/polar";
 
 interface StudioNavRailProps {
-  currentTab: "home" | "exports" | "tutorials" | "changelog";
-  setCurrentTab: (tab: "home" | "exports" | "tutorials" | "changelog") => void;
-  exportCount: number;
+  activeTab: "home" | "projects" | "templates" | "brand" | "settings";
+  onTabChange: (tab: "home" | "projects" | "templates" | "brand" | "settings") => void;
 }
 
-export function StudioNavRail({
-  currentTab,
-  setCurrentTab,
-  exportCount,
-}: StudioNavRailProps) {
-  const { user, isPro, signOut } = useAuth();
+export function StudioNavRail({ activeTab, onTabChange }: StudioNavRailProps) {
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
-  const displayName =
-    user?.user_metadata.full_name ||
-    user?.user_metadata.name ||
-    (user?.email ? user.email.split("@")[0] : "Creator");
+  const navItems: Array<{
+    id: "home" | "projects" | "templates" | "brand" | "settings";
+    label: string;
+    icon: (active: boolean) => React.ReactNode;
+  }> = [
+    {
+      id: "home",
+      label: "Home",
+      icon: (active) => (
+        <svg
+          className={cn("h-4 w-4", active ? "text-[#7C3AED]" : "text-[#A19EAA]")}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      ),
+    },
+    {
+      id: "projects",
+      label: "My Projects",
+      icon: (active) => (
+        <svg
+          className={cn("h-4 w-4", active ? "text-[#7C3AED]" : "text-[#A19EAA]")}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        </svg>
+      ),
+    },
+    {
+      id: "templates",
+      label: "Templates",
+      icon: (active) => (
+        <svg
+          className={cn("h-4 w-4", active ? "text-[#7C3AED]" : "text-[#A19EAA]")}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M9 21V9" />
+        </svg>
+      ),
+    },
+    {
+      id: "brand",
+      label: "Brand Kit",
+      icon: (active) => (
+        <svg
+          className={cn("h-4 w-4", active ? "text-[#7C3AED]" : "text-[#A19EAA]")}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z" />
+        </svg>
+      ),
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      icon: (active) => (
+        <svg
+          className={cn("h-4 w-4", active ? "text-[#7C3AED]" : "text-[#A19EAA]")}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      ),
+    },
+  ];
 
-  const avatarUrl =
-    user?.user_metadata.avatar_url || user?.user_metadata.picture;
-
-  const initial = displayName ? displayName[0]?.toUpperCase() : "C";
+  const moreTools = [
+    {
+      id: "b-rolls",
+      label: "AI B-Rolls",
+      icon: (
+        <svg className="h-3.5 w-3.5 text-[#A19EAA]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polygon points="23 7 16 12 23 17 23 7" />
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+        </svg>
+      ),
+    },
+    {
+      id: "ai-voice",
+      label: "AI Voice",
+      icon: (
+        <svg className="h-3.5 w-3.5 text-[#A19EAA]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+          <line x1="12" y1="19" x2="12" y2="23" />
+        </svg>
+      ),
+    },
+    {
+      id: "auto-zoom",
+      label: "Auto Zoom",
+      icon: (
+        <svg className="h-3.5 w-3.5 text-[#A19EAA]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="22" y1="12" x2="18" y2="12" />
+          <line x1="6" y1="12" x2="2" y2="12" />
+          <line x1="12" y1="6" x2="12" y2="2" />
+          <line x1="12" y1="22" x2="12" y2="18" />
+        </svg>
+      ),
+    },
+    {
+      id: "remove-bg",
+      label: "Remove BG",
+      icon: (
+        <svg className="h-3.5 w-3.5 text-[#A19EAA]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      ),
+    },
+    {
+      id: "speed",
+      label: "Speed",
+      icon: (
+        <svg className="h-3.5 w-3.5 text-[#A19EAA]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 14 14" />
+        </svg>
+      ),
+    },
+    {
+      id: "translate",
+      label: "Translate",
+      icon: (
+        <svg className="h-3.5 w-3.5 text-[#A19EAA]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        </svg>
+      ),
+    },
+  ];
 
   return (
-    <aside className="flex h-full w-[240px] shrink-0 flex-col justify-between border-r border-white/5 bg-[#0f0e0d] p-3 text-sm select-none">
-      <div className="space-y-6">
-        {/* Brand Header */}
-        <div className="px-2 pt-1">
-          <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-85">
-            <SnipPugLogo size="sm" showWordmark={false} />
-            <span className="font-mono text-xs font-bold tracking-[0.2em] text-[#E6C395]">
-              SNIPPUG.AI
-            </span>
-          </Link>
-        </div>
+    <aside className="flex h-full w-[210px] shrink-0 flex-col justify-between border-r border-[#262330] bg-[#0B0A0F] p-3 text-xs">
+      <div className="space-y-4">
+        {/* Navigation links */}
+        <nav className="space-y-1">
+          {navItems.map((item) => {
+            const active = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onTabChange(item.id)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium transition-colors text-left",
+                  active
+                    ? "bg-[#1A1722] text-white"
+                    : "text-[#A19EAA] hover:bg-[#131118] hover:text-white",
+                )}
+              >
+                {item.icon(active)}
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-        {/* Projects Navigation */}
-        <div className="space-y-1">
-          <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6A6255]">
-            Projects
+        {/* Go Pro Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-[#262330] bg-[#131118] p-3.5">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-sm">👑</span>
+            <span className="font-bold text-white">Go Pro</span>
+          </div>
+          <p className="mb-3 text-[11px] leading-relaxed text-[#A19EAA]">
+            Unlock premium features and export in 4K
           </p>
-
           <button
             type="button"
-            onClick={() => setCurrentTab("home")}
-            className={cn(
-              "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-xs font-medium transition-colors",
-              currentTab === "home"
-                ? "bg-[#1f1b16] font-semibold text-white shadow-sm"
-                : "text-[#A89F91] hover:bg-white/5 hover:text-white",
-            )}
+            onClick={() => openPolarCheckout()}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#7C3AED] py-2 text-center text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#8B5CF6] active:scale-[0.98]"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-            <span>Home</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setCurrentTab("exports")}
-            className={cn(
-              "flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-xs font-medium transition-colors",
-              currentTab === "exports"
-                ? "bg-[#1f1b16] font-semibold text-white shadow-sm"
-                : "text-[#A89F91] hover:bg-white/5 hover:text-white",
-            )}
-          >
-            <div className="flex items-center gap-2.5">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              <span>Exports Queue</span>
-            </div>
-            {exportCount > 0 && (
-              <Badge className="h-4 bg-[#E6C395] px-1.5 text-[9px] font-bold text-[#1a1612]">
-                {exportCount}
-              </Badge>
-            )}
+            <span>Upgrade</span>
+            <span>→</span>
           </button>
         </div>
 
-        {/* Resources Section */}
-        <div className="space-y-1">
-          <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6A6255]">
-            Resources
-          </p>
-
-          <button
-            type="button"
-            onClick={() => setCurrentTab("tutorials")}
-            className={cn(
-              "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-xs font-medium transition-colors",
-              currentTab === "tutorials"
-                ? "bg-[#1f1b16] font-semibold text-white"
-                : "text-[#A89F91] hover:bg-white/5 hover:text-white",
-            )}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-              <path d="M6 6h10" />
-              <path d="M6 10h10" />
-            </svg>
-            <span>Tutorials</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setCurrentTab("changelog")}
-            className={cn(
-              "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-xs font-medium transition-colors",
-              currentTab === "changelog"
-                ? "bg-[#1f1b16] font-semibold text-white"
-                : "text-[#A89F91] hover:bg-white/5 hover:text-white",
-            )}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
-              <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
-              <circle cx="12" cy="12" r="2" />
-              <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
-              <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
-            </svg>
-            <span>Changelog</span>
-          </button>
+        {/* More Tools Grid */}
+        <div className="space-y-2">
+          <span className="px-1 text-[11px] font-medium text-[#6B6778]">
+            More Tools
+          </span>
+          <div className="grid grid-cols-2 gap-1.5">
+            {moreTools.map((tool) => (
+              <button
+                key={tool.id}
+                type="button"
+                onClick={() => toast.info(`Launched ${tool.label}`)}
+                className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#262330]/60 bg-[#131118] p-2.5 text-center transition-all hover:border-[#7C3AED]/50 hover:bg-[#1A1722]"
+              >
+                {tool.icon}
+                <span className="text-[10px] font-medium text-[#A19EAA]">
+                  {tool.label}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Bottom Profile & Pro Upgrade Card */}
-      <div className="space-y-3 pt-4">
-        {!isPro ? (
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#161412] p-3 text-left">
-            <div className="text-xs font-bold text-white">Free plan</div>
-            <p className="mt-0.5 text-[10px] leading-tight text-[#A89F91]">
-              Upgrade for 1080p exports, no watermark & batch queue.
-            </p>
-            <Button
-              size="sm"
-              onClick={() => {
-                const url = createCheckoutUrl(user?.email);
-                window.open(url, "_blank", "noopener,noreferrer");
-              }}
-              className="mt-2.5 h-8 w-full rounded-xl bg-[#2563EB] text-xs font-semibold text-white shadow-sm hover:bg-[#1D4ED8]"
-            >
-              Upgrade · $4
-            </Button>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2.5 text-center">
-            <span className="text-[11px] font-bold text-amber-300">
-              👑 PRO LIFETIME UNLOCKED
+      {/* User Footer */}
+      <div className="relative pt-2 border-t border-[#262330]/60">
+        <button
+          type="button"
+          onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+          className="flex w-full items-center justify-between rounded-xl p-1.5 transition-colors hover:bg-[#131118]"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#7C3AED] text-xs font-bold text-white">
+              A
+            </div>
+            <span className="truncate text-xs font-semibold text-white">
+              Anurag Sharma
             </span>
           </div>
-        )}
+          <svg
+            className="h-3.5 w-3.5 text-[#6B6778]"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
 
-        {/* User Account Bar */}
-        <div className="flex items-center justify-between rounded-xl border border-white/5 bg-[#141210] p-2">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <Avatar className="h-7 w-7 border border-white/20">
-              {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
-              <AvatarFallback className="bg-[#E6C395] text-[10px] font-bold text-[#1a1612]">
-                {initial}
-              </AvatarFallback>
-            </Avatar>
-            <div className="truncate text-left leading-none">
-              <div className="truncate text-xs font-semibold text-white">
-                {displayName}
-              </div>
-              <div className="mt-0.5 text-[9px] text-[#A89F91]">
-                {isPro ? "Pro Member" : "Free"}
-              </div>
-            </div>
-          </div>
-
-          {user ? (
+        {userDropdownOpen && (
+          <div className="absolute bottom-12 left-0 right-0 rounded-xl border border-[#262330] bg-[#1A1722] p-1.5 shadow-xl">
+            <Link
+              to="/login"
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-[#A19EAA] hover:bg-[#262330] hover:text-white"
+            >
+              Switch Account
+            </Link>
             <button
               type="button"
-              onClick={() => void signOut()}
-              title="Sign out"
-              className="text-[#6A6255] hover:text-[#A89F91]"
+              onClick={() => {
+                setUserDropdownOpen(false);
+                toast.success("Signed out");
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-red-400 hover:bg-[#262330]"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
+              Log out
             </button>
-          ) : (
-            <Link to="/login" className="text-[10px] font-semibold text-[#E6C395] hover:underline">
-              Sign in
-            </Link>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </aside>
   );

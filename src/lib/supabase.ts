@@ -2,6 +2,7 @@
  * Lightweight Supabase Auth client using REST API directly.
  * No @supabase/supabase-js dependency required.
  */
+import { toast } from "sonner";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -36,13 +37,11 @@ const STORAGE_KEY = "snippug-auth-session";
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function getBaseUrl(): string {
-  if (!SUPABASE_URL) throw new Error("VITE_SUPABASE_URL is not set");
-  return SUPABASE_URL;
+  return SUPABASE_URL || "";
 }
 
 function getAnonKey(): string {
-  if (!SUPABASE_ANON_KEY) throw new Error("VITE_SUPABASE_ANON_KEY is not set");
-  return SUPABASE_ANON_KEY;
+  return SUPABASE_ANON_KEY || "";
 }
 
 function headers(accessToken?: string): HeadersInit {
@@ -103,6 +102,10 @@ function notify(
  * Start Google OAuth sign-in via Supabase redirect flow.
  */
 export function signInWithGoogle(): void {
+  if (!SUPABASE_URL) {
+    toast.error("VITE_SUPABASE_URL is not set. Please add it in your Vercel Project Settings → Environment Variables and redeploy.");
+    return;
+  }
   const redirectTo = `${window.location.origin}/auth/callback`;
   const url = `${getBaseUrl()}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
   window.location.href = url;
@@ -146,6 +149,7 @@ export async function handleAuthCallback(): Promise<SupabaseSession | null> {
  * Get user info from Supabase using an access token.
  */
 async function getUser(accessToken: string): Promise<SupabaseUser | null> {
+  if (!SUPABASE_URL) return null;
   try {
     const res = await fetch(`${getBaseUrl()}/auth/v1/user`, {
       headers: headers(accessToken),
@@ -164,6 +168,7 @@ async function getUser(accessToken: string): Promise<SupabaseUser | null> {
 async function refreshSession(
   refreshToken: string,
 ): Promise<SupabaseSession | null> {
+  if (!SUPABASE_URL) return null;
   try {
     const res = await fetch(`${getBaseUrl()}/auth/v1/token?grant_type=refresh_token`, {
       method: "POST",
@@ -220,7 +225,7 @@ export async function getSession(): Promise<SupabaseSession | null> {
  */
 export async function signOut(): Promise<void> {
   const session = loadSession();
-  if (session) {
+  if (session && SUPABASE_URL) {
     try {
       await fetch(`${getBaseUrl()}/auth/v1/logout`, {
         method: "POST",

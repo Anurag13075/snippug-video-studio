@@ -51,6 +51,20 @@
   --color-tomato: var(--tomato);
   --color-skywash: var(--skywash);
 
+  /* SnipPug Studio Dark Tokens (Mockup Matched) */
+  --color-studio-bg: #0B0A0F;
+  --color-studio-panel: #131118;
+  --color-studio-surface: #1A1722;
+  --color-studio-surface-hover: #221F2D;
+  --color-studio-border: #262330;
+  --color-studio-violet: #7C3AED;
+  --color-studio-violet-hover: #8B5CF6;
+  --color-studio-violet-glow: rgba(124, 58, 237, 0.25);
+  --color-studio-gold: #F59E0B;
+  --color-studio-text: #FFFFFF;
+  --color-studio-muted: #A19EAA;
+  --color-studio-subtle: #6B6778;
+
   --shadow-key: 0 3px 0 0 var(--key-edge), 0 4px 8px -2px oklch(0.3 0.02 60 / 0.15);
   --shadow-key-active: 0 1px 0 0 var(--key-edge);
   --shadow-card: 0 1px 2px oklch(0.3 0.02 60 / 0.06), 0 8px 24px -12px oklch(0.3 0.02 60 / 0.18);
