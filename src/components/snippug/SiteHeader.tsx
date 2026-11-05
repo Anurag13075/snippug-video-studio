@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Puggy } from "./Puggy";
 import { useSound } from "./sound";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -17,25 +16,41 @@ export function SiteHeader() {
   const { enabled, toggle, play } = useSound();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const onGlass = !scrolled;
+
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 border-b bg-background/85 backdrop-blur-md transition-shadow",
-        scrolled ? "border-border shadow-card" : "border-transparent",
+        "fixed inset-x-0 top-0 z-50 transition-all duration-200",
+        scrolled
+          ? "border-b border-border bg-background/85 shadow-card backdrop-blur-md"
+          : "border-b border-transparent",
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <a href="#top" className="flex items-center gap-2.5 pressable">
-          <span className="h-9 w-9 overflow-hidden rounded-xl border-[1.5px] border-border bg-cream shadow-key">
+          <span
+            className={cn(
+              "h-9 w-9 overflow-hidden rounded-[26%] shadow-key",
+              onGlass ? "border border-white/50" : "border-[1.5px] border-border",
+            )}
+          >
             <Puggy mood="snip" className="h-full w-full translate-y-[3px] scale-125" />
           </span>
-          <span className="text-lg font-bold tracking-tight">SnipPug</span>
+          <span
+            className={cn(
+              "text-lg font-bold tracking-tight",
+              onGlass && "text-white [text-shadow:0_1px_10px_rgba(10,25,10,0.5)]",
+            )}
+          >
+            SnipPug
+          </span>
         </a>
 
         <nav className="hidden items-center gap-1 md:flex">
@@ -44,7 +59,12 @@ export function SiteHeader() {
               key={item.href}
               href={item.href}
               onClick={() => play("click")}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className={cn(
+                "rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
+                onGlass
+                  ? "text-white/95 [text-shadow:0_1px_8px_rgba(10,25,10,0.5)] hover:bg-white/15"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
             >
               {item.label}
             </a>
@@ -58,10 +78,15 @@ export function SiteHeader() {
             aria-pressed={enabled}
             title={enabled ? "Sound effects on — click to mute" : "Sound effects off — click to unmute"}
             className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-xl border-[1.5px] border-b-[3.5px] pressable",
-              enabled
-                ? "border-border bg-tan text-cocoa shadow-key hover:shadow-key-active"
-                : "border-border bg-card text-muted-foreground shadow-key hover:shadow-key-active",
+              "flex h-9 w-9 items-center justify-center rounded-full border transition-colors",
+              onGlass
+                ? "border-white/40 bg-white/15 text-white backdrop-blur-sm hover:bg-white/25"
+                : cn(
+                    "border-[1.5px]",
+                    enabled
+                      ? "border-border bg-tan text-cocoa shadow-key"
+                      : "border-border bg-card text-muted-foreground shadow-key",
+                  ),
             )}
           >
             {enabled ? (
@@ -77,14 +102,13 @@ export function SiteHeader() {
               </svg>
             )}
           </button>
-          <Button
-            asChild
-            className="hidden rounded-xl border-b-[3px] border-cocoa/40 bg-primary px-4 font-semibold shadow-key hover:shadow-key-active active:translate-y-[2px] sm:inline-flex"
+          <a
+            href="#studio"
+            onClick={() => play("click")}
+            className="inline-flex h-10 items-center rounded-full bg-white px-5 text-sm font-semibold text-cocoa shadow-[0_6px_20px_-6px_rgba(15,30,15,0.45)] transition-all hover:-translate-y-px"
           >
-            <a href="#studio" onClick={() => play("click")}>
-              Open Studio
-            </a>
-          </Button>
+            Open Studio
+          </a>
         </div>
       </div>
     </header>

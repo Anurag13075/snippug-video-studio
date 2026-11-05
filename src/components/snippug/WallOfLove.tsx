@@ -1,3 +1,5 @@
+import heroHills from "@/assets/hero-hills.jpg";
+
 const QUOTES = [
   {
     name: "Rhea",
@@ -18,14 +20,14 @@ const QUOTES = [
     handle: "@meeramakes",
     date: "Oct 18, 2026",
     color: "#c3a3d6",
-    text: "the blurred background on 9:16 exports is genuinely better than what i was doing in my old editor by hand",
+    text: "the captions feature is the killer. typed my hooks once, every export came out ready to post. didn't touch capcut",
   },
   {
     name: "Arjun",
     handle: "@arjunclips",
     date: "Oct 21, 2026",
     color: "#e8a5a0",
-    text: "puggy celebrated my first export and i don't even care that it was a 4 second clip. instantly subscribed to the mood board",
+    text: "snipped 9 moments from one stream and hit export all. nine reels before lunch. puggy celebrated each one",
   },
   {
     name: "Tania",
@@ -39,14 +41,14 @@ const QUOTES = [
     handle: "@kabirframes",
     date: "Nov 1, 2026",
     color: "#d6c98f",
-    text: "J and L to nudge a second back and forth is such a small thing but it's the thing i use 200 times a day",
+    text: "the waveform on the timeline means i cut exactly on the beat. it's the small things",
   },
 ];
 
 function Tweet({ q, i }: { q: (typeof QUOTES)[number]; i: number }) {
   return (
     <figure
-      className="tactile pressable break-inside-avoid rounded-2xl p-5"
+      className="tactile break-inside-avoid rounded-2xl p-5"
       style={{ marginTop: i % 2 === 1 ? "0.75rem" : undefined }}
     >
       <figcaption className="flex items-center gap-3">
@@ -95,17 +97,31 @@ export function WallOfLove() {
 export function FinalCta() {
   return (
     <section className="px-4 pb-24 pt-8">
-      <div className="mx-auto max-w-3xl text-center">
-        <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          Teach your timeline <span className="serif-accent text-cocoa">a new trick.</span>
-        </h2>
-        <p className="mt-4 text-muted-foreground">Mark it, snip it, ship it.</p>
-        <a
-          href="#studio"
-          className="mt-8 inline-flex h-12 items-center gap-2 rounded-2xl border-b-4 border-cocoa/40 bg-primary px-7 text-base font-semibold text-primary-foreground shadow-key transition-all hover:shadow-key-active active:translate-y-[3px] active:border-b-0"
-        >
-          Open the Studio
-        </a>
+      <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[2.5rem] px-4 py-20 text-center sm:py-28">
+        <img
+          src={heroHills}
+          alt=""
+          loading="lazy"
+          width={1920}
+          height={1080}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-black/25 via-black/10 to-black/35" />
+        <div className="relative">
+          <h2 className="text-4xl font-bold tracking-tight text-white [text-shadow:0_3px_24px_rgba(10,25,10,0.5)] sm:text-6xl">
+            Teach your timeline{" "}
+            <span className="serif-accent">a new trick.</span>
+          </h2>
+          <p className="mt-4 text-lg text-white/95 [text-shadow:0_1px_12px_rgba(10,25,10,0.5)]">
+            Mark it, snip it, ship it.
+          </p>
+          <a
+            href="#studio"
+            className="mt-9 inline-flex h-13 items-center gap-2 rounded-full bg-white px-8 text-base font-semibold text-cocoa shadow-[0_10px_30px_-8px_rgba(15,30,15,0.5)] transition-all hover:-translate-y-0.5"
+          >
+            Open the Studio
+          </a>
+        </div>
       </div>
     </section>
   );

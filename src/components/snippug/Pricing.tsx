@@ -1,21 +1,14 @@
 import { toast } from "sonner";
+import { KeycapStatic } from "./Keycap";
 import { useSound } from "./sound";
-import { cn } from "@/lib/utils";
-
-const FREE_FEATURES = [
-  "Unlimited clips, forever",
-  "9:16, 1:1 and 16:9 exports",
-  "All keyboard shortcuts",
-  "Sample clips included",
-  "Runs offline after first visit",
-];
 
 const PRO_FEATURES = [
-  "No SnipPug tag on exports",
+  "Every feature unlocked from day one",
+  "No SnipPug tag on exports — or your own watermark",
   "1080p export resolution",
-  "Custom watermark text",
-  "Batch queue for long videos",
-  "Priority feature requests from Puggy",
+  "Batch queue: snip a whole video, export all at once",
+  "Lifetime updates included",
+  "Money back within 5 days",
 ];
 
 function Check() {
@@ -31,55 +24,42 @@ export function Pricing() {
 
   return (
     <section id="pricing" className="scroll-mt-24 px-4 py-20">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-3xl">
         <p className="text-center text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Pricing
         </p>
         <h2 className="mt-2 text-center text-4xl font-bold tracking-tight sm:text-5xl">
-          Snip free. <span className="serif-accent text-cocoa">Go Pro when you're famous.</span>
+          Pay once. <span className="serif-accent text-cocoa">Keep it.</span>
         </h2>
+        <p className="mx-auto mt-4 max-w-lg text-center text-muted-foreground">
+          The studio is free, with no account. Pro is one payment for creators who ship every day —
+          no subscription.
+        </p>
 
-        <div className="mt-12 grid gap-4 md:grid-cols-2">
-          {/* Free */}
-          <div className="tactile rounded-3xl p-7">
+        <div className="mx-auto mt-10 max-w-lg">
+          <div className="tactile relative rounded-3xl p-7">
             <div className="flex items-baseline justify-between">
-              <h3 className="text-xl font-bold">Free</h3>
-              <div className="text-right">
-                <div className="text-3xl font-bold tracking-tight">$0</div>
-                <div className="text-xs text-muted-foreground">forever</div>
-              </div>
-            </div>
-            <ul className="mt-5 space-y-2.5">
-              {FREE_FEATURES.map((f) => (
-                <li key={f} className="flex gap-2.5 text-sm">
-                  <Check />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-            <a
-              href="#studio"
-              onClick={() => play("click")}
-              className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-xl border-[1.5px] border-border bg-card text-sm font-semibold shadow-key pressable hover:bg-secondary"
-            >
-              Open the Studio
-            </a>
-          </div>
-
-          {/* Pro */}
-          <div className="tactile relative rounded-3xl border-cocoa/25 bg-tan/25 p-7">
-            <span className="absolute -top-3 right-6 rounded-full border-[1.5px] border-border bg-cocoa px-3 py-1 text-[11px] font-bold text-primary-foreground shadow-key">
-              Creator license
-            </span>
-            <div className="flex items-baseline justify-between">
-              <h3 className="text-xl font-bold">Pro</h3>
+              <h3 className="text-xl font-bold">SnipPug Pro</h3>
               <div className="text-right">
                 <div className="text-3xl font-bold tracking-tight">
-                  $5<span className="text-base font-semibold text-muted-foreground">/mo</span>
+                  $19 <span className="text-base font-semibold text-muted-foreground line-through">later $29</span>
                 </div>
-                <div className="text-xs text-muted-foreground">or $29 once — keep it forever</div>
+                <div className="text-xs text-muted-foreground">
+                  one-time payment · no subscription
+                </div>
               </div>
             </div>
+
+            <div className="mt-5 rounded-2xl border-[1.5px] border-border bg-secondary/70 p-4">
+              <div className="text-sm font-bold">50% off in India</div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Buying from India? Enter this code at checkout to pay half.
+              </p>
+              <div className="mt-2">
+                <KeycapStatic className="min-w-0 px-3 tracking-[0.12em]">EXCLUSIVE50</KeycapStatic>
+              </div>
+            </div>
+
             <ul className="mt-5 space-y-2.5">
               {PRO_FEATURES.map((f) => (
                 <li key={f} className="flex gap-2.5 text-sm">
@@ -88,20 +68,28 @@ export function Pricing() {
                 </li>
               ))}
             </ul>
+
             <button
               type="button"
               onClick={() => {
                 play("pop");
-                toast.info("Pro checkout is coming soon. The Free studio is fully usable right now — go snip something!", {
+                toast.info("Pro checkout opens at launch. The free studio is fully usable right now — go snip something!", {
                   duration: 5000,
                 });
               }}
-              className="mt-6 inline-flex h-11 w-full items-center justify-center rounded-xl border-b-4 border-cocoa/40 bg-primary text-sm font-semibold text-primary-foreground shadow-key pressable hover:shadow-key-active active:translate-y-[3px] active:border-b-0"
+              className="mt-6 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-primary text-base font-semibold text-primary-foreground shadow-key transition-all hover:shadow-key-active active:translate-y-[2px]"
             >
-              Get Pro
+              Get Pro · $19
             </button>
+            <a
+              href="#studio"
+              onClick={() => play("click")}
+              className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-2xl border-[1.5px] border-border bg-card text-sm font-semibold shadow-key pressable hover:bg-secondary"
+            >
+              Use it free first
+            </a>
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Cancel anytime · lifetime option never expires
+              License delivered by email · keep it forever
             </p>
           </div>
         </div>
