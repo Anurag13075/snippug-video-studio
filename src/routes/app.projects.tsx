@@ -83,8 +83,8 @@ function ProjectsPage() {
           {filtered.map((p) => (
             <Link
               key={p.id}
-              to="/app/studio/$projectId"
-              params={{ projectId: p.id }}
+              to="/app/clips/$runId"
+              params={{ runId: p.id }}
               className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#262330] bg-[#131118] transition-all hover:border-[#7C3AED]/60 hover:bg-[#1A1722]"
             >
               <div className="relative aspect-video w-full bg-black/60 flex items-center justify-center">

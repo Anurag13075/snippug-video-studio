@@ -782,21 +782,11 @@ function ClipPreviewCard({
             <button
               type="button"
               onClick={onDownloadClip}
-              className="rounded-xl bg-[#7C3AED] py-2 text-center text-[11px] font-bold text-white shadow-md hover:bg-[#8B5CF6] transition-colors flex items-center justify-center gap-1.5"
+              className="rounded-xl bg-[#7C3AED] py-2.5 text-center text-xs font-bold text-white shadow-md hover:bg-[#8B5CF6] transition-colors flex items-center justify-center gap-1.5"
             >
               <span>⬇️</span>
-              <span>Download</span>
+              <span>Download 9:16</span>
             </button>
-            <button
-              type="button"
-              onClick={onEditInStudio}
-              className="rounded-xl border border-[#262330] bg-[#1A1722] py-2 text-center text-[11px] font-semibold text-white hover:border-[#7C3AED] transition-colors"
-            >
-              Edit in Studio
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => {
@@ -805,9 +795,10 @@ function ClipPreviewCard({
                 navigator.clipboard.writeText(postText);
                 toast.success("Copied caption & hashtags to clipboard!");
               }}
-              className="flex-1 rounded-lg border border-[#262330] bg-[#1A1722]/50 py-1 text-center text-[10px] text-[#A19EAA] hover:text-white transition-colors"
+              className="rounded-xl border border-[#262330] bg-[#1A1722] py-2.5 text-center text-xs font-semibold text-white hover:border-[#7C3AED] transition-colors flex items-center justify-center gap-1.5"
             >
-              📋 Copy Caption & Tags
+              <span>📋</span>
+              <span>Copy Post</span>
             </button>
           </div>
 
