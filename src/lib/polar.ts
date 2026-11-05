@@ -6,19 +6,57 @@ const POLAR_STORAGE_KEY = "snippug-pro-purchased";
 
 /**
  * Build a Polar checkout URL for SnipPug Pro.
+ * Gracefully accepts either full checkout URLs, checkout IDs (polar_cl_...), or product IDs.
  */
 export function createCheckoutUrl(userEmail?: string): string {
-  const baseUrl = "https://buy.polar.sh";
-  const productId =
-    (import.meta.env.VITE_POLAR_PRODUCT_ID as string | undefined) ||
-    "snippug-pro";
-  const successUrl = `${window.location.origin}/?purchase=success`;
+  const checkoutUrlEnv = (
+    import.meta.env.VITE_POLAR_CHECKOUT_URL as string | undefined
+  )?.trim();
+  const productIdEnv = (
+    import.meta.env.VITE_POLAR_PRODUCT_ID as string | undefined
+  )?.trim();
 
-  const url = new URL(`${baseUrl}/${productId}`);
-  if (userEmail) url.searchParams.set("email", userEmail);
-  url.searchParams.set("success_url", successUrl);
+  const successUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/studio?purchase=success`
+      : "https://snippug.vercel.app/studio?purchase=success";
 
-  return url.toString();
+  let targetUrl: string;
+
+  if (checkoutUrlEnv && checkoutUrlEnv.startsWith("http")) {
+    targetUrl = checkoutUrlEnv;
+  } else if (productIdEnv && productIdEnv.startsWith("http")) {
+    targetUrl = productIdEnv;
+  } else if (productIdEnv) {
+    if (productIdEnv.startsWith("polar_cl_")) {
+      targetUrl = `https://buy.polar.sh/${productIdEnv}`;
+    } else {
+      targetUrl = `https://buy.polar.sh/${productIdEnv}`;
+    }
+  } else {
+    targetUrl = "https://buy.polar.sh/snippug-pro";
+  }
+
+  try {
+    const url = new URL(targetUrl);
+    if (userEmail) url.searchParams.set("email", userEmail);
+    if (!url.searchParams.has("success_url")) {
+      url.searchParams.set("success_url", successUrl);
+    }
+    return url.toString();
+  } catch {
+    return targetUrl;
+  }
+}
+
+/**
+ * Open Polar checkout directly in a new tab or trigger purchase flow.
+ */
+export function openPolarCheckout(userEmail?: string): void {
+  const url = createCheckoutUrl(userEmail);
+  if (typeof window !== "undefined") {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 }
 
 /**
