@@ -1,242 +1,235 @@
 import { useState, useEffect, useRef } from "react";
-import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { getMediaFile, saveMediaFile, type StoredProject, saveProject } from "@/lib/storage";
-import {
-  transcribeVideo,
-  generateAutoClips,
-  type ClipCandidate,
-  type FullTranscript,
-  type TranscriptWord,
-} from "@/lib/transcription-client";
-import { drawComposed, type CaptionState, type CaptionStyle } from "@/components/studio/useStudioState";
+import { getMediaFile, getProject, saveProject, type StoredProject } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/clips/$runId")({
-  component: ClipRunPage,
+  component: ReactionStudioPage,
 });
 
-function ClipRunPage() {
+type LayoutMode = "split-top-bottom" | "split-bottom-top" | "pip-bottom-right" | "side-by-side";
+
+function ReactionStudioPage() {
   const { runId } = useParams({ from: "/app/clips/$runId" });
-  const navigate = useNavigate();
 
-  const [stage, setStage] = useState<"processing" | "results" | "error">("processing");
-  const [currentStep, setCurrentStep] = useState("Extracting audio on device...");
-  const [progressPct, setProgressPct] = useState(15);
-  const [errorMessage, setErrorMessage] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [project, setProject] = useState<StoredProject | null>(null);
 
-  const [clips, setClips] = useState<ClipCandidate[]>([]);
-  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string>("");
-  const [fullTranscript, setFullTranscript] = useState<FullTranscript | null>(null);
-  const [evalMarks, setEvalMarks] = useState<Record<string, boolean>>({});
-  const [exportingClipId, setExportingClipId] = useState<string | null>(null);
+  // Video Sources
+  const [sourceUrl, setSourceUrl] = useState<string>("");
+  const [reactionUrl, setReactionUrl] = useState<string>("");
+
+  // Playback & Sync State
+  const sourceVideoRef = useRef<HTMLVideoElement>(null);
+  const reactionVideoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(30);
+
+  // Reaction Studio Layout & Audio Controls
+  const [layout, setLayout] = useState<LayoutMode>("split-top-bottom");
+  const [sourceVolume, setSourceVolume] = useState<number>(40);
+  const [reactionVolume, setReactionVolume] = useState<number>(100);
+
+  // Captions & Subtitles
+  const [captionText, setCaptionText] = useState("Wait... did he just say that?! 🤯");
+  const [captionStyle, setCaptionStyle] = useState<"bold" | "yellow" | "minimal">("bold");
+  const [showCaptions, setShowCaptions] = useState(true);
+
+  // Exporter State
+  const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
 
-  const runPipelineRef = useRef<boolean>(false);
+  // Canvas composite ref for preview/export
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // ── 1. Load project directly from local storage (NO PIPELINE DELAY) ──
   useEffect(() => {
     let cancelled = false;
 
-    async function runPipeline() {
-      if (runPipelineRef.current) return;
-      runPipelineRef.current = true;
-
-      setStage("processing");
-      setErrorMessage("");
-
+    async function loadProject() {
+      setLoading(true);
       try {
-        let blob = await getMediaFile(runId);
-        if (!blob) {
-          // If no local blob found in storage, load bundled sample
-          toast.info("Using sample presentation for clip generation");
+        const proj = await getProject(runId);
+        if (proj) {
+          setProject(proj);
+          if (proj.layout) setLayout(proj.layout as LayoutMode);
+          if (proj.sourceVolume !== undefined) setSourceVolume(proj.sourceVolume);
+          if (proj.reactionVolume !== undefined) setReactionVolume(proj.reactionVolume);
+          if (proj.duration) setDuration(proj.duration);
+        }
+
+        // 1. Fetch Source Video
+        let sBlob = await getMediaFile(`source_${runId}`);
+        if (!sBlob) sBlob = await getMediaFile(runId);
+        if (!sBlob) {
+          const res = await fetch("/samples/tech-review.mp4");
+          sBlob = await res.blob();
+        }
+
+        // 2. Fetch Reaction Video
+        let rBlob = await getMediaFile(`reaction_${runId}`);
+        if (!rBlob) {
           const res = await fetch("/samples/podcast-snippet.mp4");
-          blob = await res.blob();
-          await saveMediaFile(runId, blob);
+          rBlob = await res.blob();
         }
 
         if (cancelled) return;
-        setVideoBlob(blob);
-        const objUrl = URL.createObjectURL(blob);
-        setVideoUrl(objUrl);
 
-        setCurrentStep("Extracting 16kHz audio on your device (100% browser-side)...");
-        setProgressPct(20);
-
-        const { transcript } = await transcribeVideo(blob, (stepText, pct) => {
-          if (cancelled) return;
-          setCurrentStep(stepText);
-          setProgressPct(pct);
-        });
-
-        if (cancelled) return;
-        setFullTranscript(transcript);
-
-        setCurrentStep("Detecting viral hooks, story arcs, and punchlines...");
-        setProgressPct(85);
-
-        const candidates = await generateAutoClips(transcript, 3, 15, 60);
-        if (cancelled) return;
-
-        setClips(candidates);
-        setStage("results");
-        toast.success(`Generated ${candidates.length} ready-to-post clips!`);
-
-        // Save project metadata to IndexedDB
-        await saveProject({
-          id: runId,
-          name: `Auto Clips · ${new Date().toLocaleDateString()}`,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          fileName: "source-video.mp4",
-          fileSize: blob.size,
-          fileHash: transcript.mediaHash,
-          duration: transcript.duration,
-          aspect: "9:16",
-          captionSettings: {
-            style: "bold",
-            fontSize: 54,
-            color: "#FFFFFF",
-            position: "bottom",
-            fontFamily: "Inter",
-          },
-          transcript: {
-            text: transcript.text,
-            words: transcript.words,
-          },
-          clips: candidates.map((c) => ({
-            id: c.id,
-            start: c.start,
-            end: c.end,
-            title: c.title,
-            score: c.score,
-            hook: c.hook,
-            reason: c.reason,
-          })),
-        });
+        setSourceUrl(URL.createObjectURL(sBlob));
+        setReactionUrl(URL.createObjectURL(rBlob));
+        setLoading(false);
       } catch (err) {
-        console.error("Run error:", err);
-        const msg = err instanceof Error ? err.message : "Run failed";
-        setErrorMessage(msg);
-        setStage("error");
-        toast.error(`Processing error: ${msg}`);
+        console.error("Load error:", err);
+        setLoading(false);
       }
     }
 
-    void runPipeline();
+    void loadProject();
 
     return () => {
       cancelled = true;
     };
   }, [runId]);
 
-  const toggleSelect = (id: string) => {
-    setClips((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, selected: !c.selected } : c)),
-    );
-  };
-
-  const handlePostEval = (id: string, wouldPost: boolean) => {
-    setEvalMarks((prev) => ({ ...prev, [id]: wouldPost }));
-    toast.success(wouldPost ? "Rated: Would Post 👍" : "Rated: Won't Post 👎");
-  };
-
-  const updateClipField = (id: string, field: "title" | "hook", value: string) => {
-    setClips((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
-    );
-  };
-
-  const handleEditInStudio = async (clip: ClipCandidate) => {
-    const projectId = `${runId}_${clip.id}`;
-    if (videoBlob) {
-      await saveMediaFile(projectId, videoBlob);
+  // Sync Volume to video elements
+  useEffect(() => {
+    if (sourceVideoRef.current) {
+      sourceVideoRef.current.volume = sourceVolume / 100;
     }
-    await saveProject({
-      id: projectId,
-      name: clip.title,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      fileName: `${clip.title}.mp4`,
-      fileSize: videoBlob?.size || 0,
-      fileHash: fullTranscript?.mediaHash || "",
-      duration: clip.duration,
-      aspect: "9:16",
-      captionSettings: {
-        style: "bold",
-        fontSize: 54,
-        color: "#FFFFFF",
-        position: "bottom",
-        fontFamily: "Inter",
-      },
-      transcript: {
-        text: fullTranscript?.text || "",
-        words: (fullTranscript?.words || []).filter(
-          (w) => w.start >= clip.start && w.end <= clip.end,
-        ),
-      },
-      clips: [clip],
-    });
+  }, [sourceVolume]);
 
-    void navigate({ to: "/app/studio/$projectId", params: { projectId } });
+  useEffect(() => {
+    if (reactionVideoRef.current) {
+      reactionVideoRef.current.volume = reactionVolume / 100;
+    }
+  }, [reactionVolume]);
+
+  // Synchronize Playback
+  const togglePlay = () => {
+    const s = sourceVideoRef.current;
+    const r = reactionVideoRef.current;
+    if (!s || !r) return;
+
+    if (isPlaying) {
+      s.pause();
+      r.pause();
+      setIsPlaying(false);
+    } else {
+      // align time before playing
+      r.currentTime = s.currentTime;
+      void s.play();
+      void r.play();
+      setIsPlaying(true);
+    }
   };
 
-  // Browser-side clip exporter with burned-in kinetic subtitles
-  const handleDownloadClip = async (clip: ClipCandidate) => {
-    if (!videoUrl) return;
-    setExportingClipId(clip.id);
+  const handleSeek = (newTime: number) => {
+    setCurrentTime(newTime);
+    if (sourceVideoRef.current) sourceVideoRef.current.currentTime = newTime;
+    if (reactionVideoRef.current) reactionVideoRef.current.currentTime = newTime;
+  };
+
+  // Keep time synced on update
+  const handleTimeUpdate = () => {
+    const s = sourceVideoRef.current;
+    const r = reactionVideoRef.current;
+    if (!s) return;
+
+    setCurrentTime(s.currentTime);
+
+    // If source ends or loops
+    if (s.currentTime >= duration || s.ended) {
+      s.currentTime = 0;
+      if (r) r.currentTime = 0;
+      void s.play();
+      if (r) void r.play();
+    }
+  };
+
+  // Quick Preset: Audio Ducking
+  const handleDuckAudio = () => {
+    setSourceVolume(20);
+    setReactionVolume(100);
+    toast.success("Audio Ducked: Background set to 20%, Reaction voice 100%");
+  };
+
+  // Save Settings
+  const handleSaveSettings = async (newLayout: LayoutMode) => {
+    setLayout(newLayout);
+    if (project) {
+      const updated = {
+        ...project,
+        layout: newLayout,
+        sourceVolume,
+        reactionVolume,
+        updatedAt: Date.now(),
+      };
+      setProject(updated);
+      await saveProject(updated);
+    }
+  };
+
+  // ── Render & Export Split Video Directly In Browser ──
+  const handleExportReactionShort = async () => {
+    const s = sourceVideoRef.current;
+    const r = reactionVideoRef.current;
+    if (!s || !r) return;
+
+    setIsExporting(true);
     setExportProgress(5);
 
     try {
-      const v = document.createElement("video");
-      v.src = videoUrl;
-      v.crossOrigin = "anonymous";
-      v.muted = false;
-
-      await new Promise<void>((resolve, reject) => {
-        v.onloadedmetadata = () => resolve();
-        v.onerror = () => reject(new Error("Failed to load video stream"));
-      });
-
-      const W = 540;
-      const H = 960;
+      const W = 720;
+      const H = 1280;
       const canvas = document.createElement("canvas");
       canvas.width = W;
       canvas.height = H;
       const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Could not initialize 2D canvas");
+      if (!ctx) throw new Error("Could not initialize export canvas");
 
-      const inTime = clip.start;
-      const outTime = clip.end;
-      v.currentTime = inTime;
+      // Set playback to 0
+      s.pause();
+      r.pause();
+      s.currentTime = 0;
+      r.currentTime = 0;
 
-      await new Promise<void>((ok) => {
-        v.onseeked = () => ok();
-      });
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
       const stream = canvas.captureStream(30);
 
-      // Capture audio if supported
+      // Mix Audio from both videos
       try {
         const audioCtx = new AudioContext();
-        const srcNode = audioCtx.createMediaElementSource(v);
-        const destNode = audioCtx.createMediaStreamDestination();
-        srcNode.connect(destNode);
-        srcNode.connect(audioCtx.destination);
-        destNode.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
+        const dest = audioCtx.createMediaStreamDestination();
+
+        const sSrc = audioCtx.createMediaElementSource(s);
+        const sGain = audioCtx.createGain();
+        sGain.gain.value = sourceVolume / 100;
+        sSrc.connect(sGain);
+        sGain.connect(dest);
+        sGain.connect(audioCtx.destination);
+
+        const rSrc = audioCtx.createMediaElementSource(r);
+        const rGain = audioCtx.createGain();
+        rGain.gain.value = reactionVolume / 100;
+        rSrc.connect(rGain);
+        rGain.connect(dest);
+        rGain.connect(audioCtx.destination);
+
+        dest.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
       } catch {
         /* audio routing fallback */
       }
 
       const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
         ? "video/mp4;codecs=avc1"
-        : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-          ? "video/webm;codecs=vp9"
-          : "video/webm";
+        : "video/webm";
 
       const recorder = new MediaRecorder(stream, {
         mimeType,
-        videoBitsPerSecond: 3_500_000,
+        videoBitsPerSecond: 4_500_000,
       });
 
       const chunks: Blob[] = [];
@@ -251,34 +244,83 @@ function ClipRunPage() {
       });
 
       recorder.start(100);
-      await v.play();
+      await s.play();
+      await r.play();
 
-      const clipWords = (fullTranscript?.words || []).filter(
-        (w) => w.start >= inTime && w.end <= outTime,
-      );
+      const totalSec = Math.min(duration, s.duration || duration);
 
       await new Promise<void>((resolve) => {
         let raf = 0;
         const renderFrame = () => {
-          const curTime = v.currentTime;
-          const pct = Math.min(100, Math.max(0, Math.round(((curTime - inTime) / (outTime - inTime)) * 100)));
+          const t = s.currentTime;
+          const pct = Math.min(100, Math.max(0, Math.round((t / totalSec) * 100)));
           setExportProgress(pct);
 
-          // Find active word for kinetic caption
-          const activeWord = clipWords.find((w) => curTime >= w.start && curTime <= w.end);
-          const captionState: CaptionState = {
-            enabled: true,
-            style: "bold",
-            language: "en",
-            fontSize: 54,
-            color: "#FFFFFF",
-            position: "bottom",
-            text: activeWord?.word || clip.hook.slice(0, 30),
-          };
+          // Clear
+          ctx.fillStyle = "#0c0c0e";
+          ctx.fillRect(0, 0, W, H);
 
-          drawComposed(ctx, v, W, H, "9:16", captionState, false);
+          // Draw Layout
+          if (layout === "split-top-bottom") {
+            // Source on top half
+            ctx.drawImage(s, 0, 0, W, H / 2);
+            // Reaction on bottom half
+            ctx.drawImage(r, 0, H / 2, W, H / 2);
+            // Divider
+            ctx.fillStyle = "#2563EB";
+            ctx.fillRect(0, H / 2 - 2, W, 4);
+          } else if (layout === "split-bottom-top") {
+            ctx.drawImage(r, 0, 0, W, H / 2);
+            ctx.drawImage(s, 0, H / 2, W, H / 2);
+            ctx.fillStyle = "#2563EB";
+            ctx.fillRect(0, H / 2 - 2, W, 4);
+          } else if (layout === "pip-bottom-right") {
+            // Source fills canvas
+            ctx.drawImage(s, 0, 0, W, H);
+            // Reaction in rounded circle bubble in bottom right
+            const size = 260;
+            const x = W - size - 30;
+            const y = H - size - 80;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(r, x, y, size, size);
+            ctx.restore();
+            // Border around bubble
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+            ctx.strokeStyle = "#2563EB";
+            ctx.lineWidth = 6;
+            ctx.stroke();
+          } else {
+            // Side-by-side
+            ctx.drawImage(s, 0, 0, W / 2, H);
+            ctx.drawImage(r, W / 2, 0, W / 2, H);
+            ctx.fillStyle = "#2563EB";
+            ctx.fillRect(W / 2 - 2, 0, 4, H);
+          }
 
-          if (curTime >= outTime || v.ended) {
+          // Burn captions if enabled
+          if (showCaptions && captionText) {
+            ctx.font = "bold 38px Inter, sans-serif";
+            ctx.textAlign = "center";
+            const textY = H - 140;
+            const textWidth = ctx.measureText(captionText).width;
+
+            // Background pill
+            ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+            ctx.beginPath();
+            ctx.roundRect(W / 2 - textWidth / 2 - 20, textY - 38, textWidth + 40, 52, 12);
+            ctx.fill();
+
+            // Text
+            ctx.fillStyle = captionStyle === "yellow" ? "#FBBF24" : "#FFFFFF";
+            ctx.fillText(captionText, W / 2, textY);
+          }
+
+          if (t >= totalSec || s.ended) {
             cancelAnimationFrame(raf);
             resolve();
           } else {
@@ -289,548 +331,421 @@ function ClipRunPage() {
       });
 
       recorder.stop();
-      v.pause();
+      s.pause();
+      r.pause();
 
-      const exportedBlob = await recordDone;
-      const downloadUrl = URL.createObjectURL(exportedBlob);
+      const blob = await recordDone;
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = downloadUrl;
-      const ext = mimeType.includes("mp4") ? "mp4" : "webm";
-      a.download = `${clip.title.replace(/[^a-zA-Z0-9_-]/g, "_")}.${ext}`;
+      a.href = url;
+      a.download = `reaction_${runId}.mp4`;
       a.click();
-      URL.revokeObjectURL(downloadUrl);
+      URL.revokeObjectURL(url);
 
-      toast.success("Clip exported and downloaded successfully!");
+      toast.success("Reaction short exported successfully! Ready for TikTok & Shorts.");
     } catch (err) {
-      console.error("Export error:", err);
-      toast.error("Export failed. You can also edit and export in Studio.");
+      console.error(err);
+      toast.error("Export failed. Please try again.");
     } finally {
-      setExportingClipId(null);
+      setIsExporting(false);
       setExportProgress(0);
     }
   };
 
-  const handleInstantSmartClipsFallback = async () => {
-    if (!videoBlob) return;
-    setStage("processing");
-    setCurrentStep("Generating smart clips from video timeline...");
-    setProgressPct(60);
-
-    const dur = 45;
-    const candidates: ClipCandidate[] = [
-      {
-        id: `clip_smart_1_${Date.now()}`,
-        start: 0,
-        end: Math.min(dur, 28),
-        duration: Math.min(dur, 28),
-        title: "The Opening Hook",
-        hook: "Here is the exact reason this works.",
-        score: 95,
-        reason: "Instant attention grabber with strong momentum.",
-        topic: "Hook",
-        subscores: { hook: 96, story: 90, payoff: 92, clarity: 94, ending: 88 },
-        selected: true,
-      },
-      {
-        id: `clip_smart_2_${Date.now()}`,
-        start: Math.max(0, Math.floor(dur * 0.3)),
-        end: Math.min(dur, Math.floor(dur * 0.3) + 30),
-        duration: 30,
-        title: "The Core Strategy",
-        hook: "Most creators do this completely wrong.",
-        score: 91,
-        reason: "Actionable advice with high retention rate.",
-        topic: "Tactics",
-        subscores: { hook: 88, story: 94, payoff: 90, clarity: 92, ending: 86 },
-        selected: true,
-      },
-      {
-        id: `clip_smart_3_${Date.now()}`,
-        start: Math.max(0, Math.floor(dur * 0.65)),
-        end: dur,
-        duration: Math.max(15, dur - Math.floor(dur * 0.65)),
-        title: "The Final Payoff",
-        hook: "If you take away just one lesson, let it be this.",
-        score: 88,
-        reason: "Powerful conclusion that drives comments and shares.",
-        topic: "Payoff",
-        subscores: { hook: 86, story: 88, payoff: 95, clarity: 90, ending: 92 },
-        selected: true,
-      },
-    ];
-
-    setClips(candidates);
-    setStage("results");
-    toast.success("Generated 3 instant viral clips!");
-  };
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2563EB]/20 text-xl text-[#2563EB] animate-spin">
+          ⚡
+        </div>
+        <p className="mt-3 text-xs text-[#8e8e93]">Opening Reaction Studio...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12">
-      {stage === "processing" ? (
-        /* Processing Screen */
-        <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-          <div className="w-full max-w-md rounded-3xl border border-[#262330] bg-[#131118] p-8 shadow-2xl space-y-6">
-            <div className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#7C3AED]/20 text-3xl text-[#8B5CF6]">
-              ⚡
-              <div className="absolute inset-0 animate-ping rounded-2xl bg-[#7C3AED]/20" />
+      {/* ── HEADER BAR ── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#1e1e24] pb-4">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/app"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#232328] bg-[#141417] text-xs text-[#8e8e93] hover:text-white"
+          >
+            ←
+          </Link>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold text-white">
+                {project?.name || "Reaction Studio"}
+              </h1>
+              <span className="rounded-md bg-[#2563EB]/20 px-2 py-0.5 text-[10px] font-semibold text-[#60A5FA]">
+                9:16 Short
+              </span>
             </div>
-
-            <div className="space-y-1">
-              <h2 className="text-base font-bold text-white">Generating Viral Clips</h2>
-              <p className="text-xs text-[#A19EAA] leading-relaxed">{currentStep}</p>
-            </div>
-
-            {/* Real Progress Bar */}
-            <div className="space-y-1.5">
-              <div className="h-2 w-full overflow-hidden rounded-full bg-[#262330]">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#7C3AED] to-[#A855F7] transition-all duration-300"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[11px] text-[#6B6778]">
-                <span>100% In-Browser Audio Extraction</span>
-                <span className="font-mono text-[#8B5CF6] font-semibold">{progressPct}%</span>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-[#262330] bg-[#1A1722]/50 p-3 text-left">
-              <div className="flex items-center gap-2 text-xs font-semibold text-white">
-                <span className="h-2 w-2 rounded-full bg-[#4ADE80] animate-pulse" />
-                Zero-Cost Pipeline Active
-              </div>
-              <p className="mt-1 text-[11px] text-[#A19EAA] leading-relaxed">
-                Video audio is sliced into ~60s chunks on your device to comply with serverless limits.
-                No video file is ever uploaded to a server.
-              </p>
-            </div>
-
-            <p className="text-[11px] text-[#6B6778]">
-              You can keep this tab open. Processing will automatically transition to results.
+            <p className="text-xs text-[#71717a] mt-0.5">
+              Split-screen layout with synchronized commentary and audio mixing
             </p>
           </div>
         </div>
-      ) : stage === "error" ? (
-        /* Designed Error Recovery Screen */
-        <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-          <div className="w-full max-w-lg rounded-3xl border border-red-500/30 bg-[#131118] p-8 shadow-2xl space-y-6 text-left">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/20 text-2xl text-red-400">
-                ⚠️
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-white">Clip Generation Stopped</h2>
-                <p className="text-xs text-[#A19EAA]">
-                  {errorMessage || "The transcription or candidate service encountered an issue."}
-                </p>
-              </div>
-            </div>
 
-            <div className="rounded-xl border border-[#262330] bg-[#1A1722] p-4 text-xs text-[#A19EAA] space-y-2">
-              <div className="font-semibold text-white">Troubleshooting suggestions:</div>
-              <ul className="list-disc pl-4 space-y-1 text-[11px]">
-                <li>Check that <code className="text-[#8B5CF6]">GROQ_API_KEY</code> is configured in Vercel.</li>
-                <li>Make sure the video has audible speech.</li>
-                <li>You can instantly generate clips using timeline beats without waiting for external API.</li>
-              </ul>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleInstantSmartClipsFallback}
-                className="flex-1 rounded-xl bg-[#7C3AED] py-2.5 text-center text-xs font-bold text-white shadow-lg hover:bg-[#8B5CF6]"
-              >
-                ⚡ Instant Smart Clips
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  runPipelineRef.current = false;
-                  setStage("processing");
-                  window.location.reload();
-                }}
-                className="rounded-xl border border-[#262330] bg-[#1A1722] px-4 py-2.5 text-xs font-semibold text-white hover:border-[#7C3AED]"
-              >
-                Retry
-              </button>
-              <Link
-                to="/app/clips/new"
-                className="rounded-xl border border-[#262330] bg-[#1A1722] px-4 py-2.5 text-xs font-semibold text-[#A19EAA] hover:text-white"
-              >
-                Upload Different Video
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Results Page */
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#262330] pb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-white">Clip Results</h1>
-                <span className="rounded-full bg-[#7C3AED]/20 px-2.5 py-0.5 text-xs font-semibold text-[#8B5CF6]">
-                  {clips.length} Clips Found
-                </span>
-                <span className="rounded-full bg-[#4ADE80]/15 px-2.5 py-0.5 text-[11px] font-semibold text-[#4ADE80]">
-                  9:16 Shorts Ready
-                </span>
-              </div>
-              <p className="text-xs text-[#A19EAA] mt-1">
-                AI selected the top moments, trimmed to punchy durations, and added animated subtitles.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Link
-                to="/app/clips/new"
-                className="rounded-xl border border-[#262330] bg-[#1A1722] px-4 py-2 text-xs font-semibold text-white hover:border-[#7C3AED]"
-              >
-                Upload Another Video
-              </Link>
-            </div>
-          </div>
-
-          {/* Export Progress Modal Overlay */}
-          {exportingClipId && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-              <div className="w-full max-w-sm rounded-3xl border border-[#262330] bg-[#131118] p-6 shadow-2xl text-center space-y-4">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#7C3AED]/20 text-2xl text-[#8B5CF6] animate-bounce">
-                  ⬇️
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Exporting 9:16 Clip</h3>
-                  <p className="text-xs text-[#A19EAA]">
-                    Burning in kinetic captions and encoding video...
-                  </p>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-[#262330]">
-                  <div
-                    className="h-full bg-[#7C3AED] transition-all duration-150"
-                    style={{ width: `${exportProgress}%` }}
-                  />
-                </div>
-                <div className="text-xs font-mono text-[#8B5CF6]">{exportProgress}%</div>
-              </div>
-            </div>
-          )}
-
-          {/* Grid of 9:16 Clips with Live Interactive Preview */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {clips.map((clip, idx) => (
-              <ClipPreviewCard
-                key={clip.id}
-                clip={clip}
-                idx={idx}
-                videoUrl={videoUrl}
-                allWords={fullTranscript?.words || []}
-                evalMark={evalMarks[clip.id]}
-                onToggleSelect={() => toggleSelect(clip.id)}
-                onPostEval={(val) => handlePostEval(clip.id, val)}
-                onUpdateField={(field, val) => updateClipField(clip.id, field, val)}
-                onEditInStudio={() => handleEditInStudio(clip)}
-                onDownloadClip={() => handleDownloadClip(clip)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Individual Interactive 9:16 Clip Card with Live Subtitles, Loop Playback, and Quick Actions
- */
-function ClipPreviewCard({
-  clip,
-  idx,
-  videoUrl,
-  allWords,
-  evalMark,
-  onToggleSelect,
-  onPostEval,
-  onUpdateField,
-  onEditInStudio,
-  onDownloadClip,
-}: {
-  clip: ClipCandidate;
-  idx: number;
-  videoUrl: string;
-  allWords: TranscriptWord[];
-  evalMark?: boolean;
-  onToggleSelect: () => void;
-  onPostEval: (wouldPost: boolean) => void;
-  onUpdateField: (field: "title" | "hook", val: string) => void;
-  onEditInStudio: () => void;
-  onDownloadClip: () => void;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(clip.start);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [isEditingHook, setIsEditingHook] = useState(false);
-
-  // Relevant words within this clip window
-  const clipWords = allWords.filter((w) => w.start >= clip.start && w.end <= clip.end);
-
-  // Active word based on currentTime
-  const activeWord = clipWords.find((w) => currentTime >= w.start && currentTime <= w.end);
-
-  // Sync video time to clip start/end boundaries and loop seamlessly
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-
-    const handleTimeUpdate = () => {
-      setCurrentTime(v.currentTime);
-      if (v.currentTime >= clip.end) {
-        v.currentTime = clip.start;
-        void v.play();
-      }
-    };
-
-    v.addEventListener("timeupdate", handleTimeUpdate);
-    return () => v.removeEventListener("timeupdate", handleTimeUpdate);
-  }, [clip.start, clip.end]);
-
-  const togglePlay = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.paused) {
-      if (v.currentTime < clip.start || v.currentTime >= clip.end) {
-        v.currentTime = clip.start;
-      }
-      void v.play();
-      setIsPlaying(true);
-    } else {
-      v.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  const currentRelativeSec = Math.max(0, Math.min(clip.duration, currentTime - clip.start));
-  const progressPct = (currentRelativeSec / Math.max(1, clip.duration)) * 100;
-
-  return (
-    <div
-      className={cn(
-        "flex flex-col overflow-hidden rounded-3xl border bg-[#131118] transition-all duration-200",
-        clip.selected ? "border-[#7C3AED]/80 shadow-2xl shadow-[#7C3AED]/10" : "border-[#262330]",
-      )}
-    >
-      {/* ── 9:16 Preview Player Container ── */}
-      <div className="relative aspect-[9/16] w-full overflow-hidden bg-black select-none">
-        {videoUrl ? (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            playsInline
-            muted={false}
-            onClick={togglePlay}
-            className="h-full w-full object-cover cursor-pointer"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-4xl text-[#6B6778]">
-            ▶
-          </div>
-        )}
-
-        {/* Play/Pause Center Button Overlay */}
-        {!isPlaying && (
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={togglePlay}
-            className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-transform hover:scale-110 active:scale-95 shadow-xl border border-white/20"
+            onClick={handleDuckAudio}
+            className="rounded-xl border border-[#232328] bg-[#141417] px-3 py-2 text-xs font-medium text-[#f4f4f5] hover:border-[#3f3f46] hover:bg-[#1a1a1e] transition-colors"
           >
-            <span className="text-2xl ml-1">▶</span>
+            🦆 Duck Audio
           </button>
-        )}
-
-        {/* Top Badges Overlay */}
-        <div className="absolute left-3 top-3 right-3 flex items-center justify-between pointer-events-none">
-          <span className="rounded-md bg-black/80 px-2.5 py-1 font-mono text-[10px] text-white backdrop-blur-md border border-white/10">
-            #{idx + 1} · {Math.round(clip.duration)}s
-          </span>
-          <span className="flex items-center gap-1.5 rounded-md bg-gradient-to-r from-[#7C3AED] to-[#A855F7] px-2.5 py-1 text-[10px] font-bold text-white shadow-lg">
-            <span>🔥</span>
-            <span>{clip.score} Virality</span>
-          </span>
-        </div>
-
-        {/* Live Animated Subtitle Overlay (Matching Mockup Kinetic Style) */}
-        <div className="absolute inset-x-3 bottom-14 flex items-center justify-center pointer-events-none px-2">
-          <div className="rounded-xl bg-black/75 px-3 py-2 text-center backdrop-blur-md border border-white/10 max-w-full">
-            <span className="font-extrabold uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] text-sm sm:text-base">
-              {activeWord ? (
-                <>
-                  <span className="text-[#F59E0B] underline decoration-[#7C3AED] decoration-2">
-                    {activeWord.word}
-                  </span>{" "}
-                  {clipWords
-                    .filter((w) => w.start > activeWord.start && w.start < activeWord.start + 2)
-                    .map((w) => w.word)
-                    .join(" ")}
-                </>
-              ) : (
-                clip.hook
-              )}
-            </span>
-          </div>
-        </div>
-
-        {/* Bottom Timeline Scrubber */}
-        <div className="absolute bottom-0 inset-x-0 h-1.5 bg-black/60 cursor-pointer">
-          <div
-            className="h-full bg-gradient-to-r from-[#7C3AED] to-[#F59E0B] transition-all"
-            style={{ width: `${progressPct}%` }}
-          />
+          <button
+            type="button"
+            onClick={handleExportReactionShort}
+            disabled={isExporting}
+            className="flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white shadow-md shadow-[#2563EB]/25 hover:bg-[#1D4ED8] transition-all disabled:opacity-50"
+          >
+            <span>⬇️</span>
+            <span>{isExporting ? `Exporting (${exportProgress}%)` : "Export 9:16 Short"}</span>
+          </button>
         </div>
       </div>
 
-      {/* ── Metadata & Quick Controls ── */}
-      <div className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
-        <div className="space-y-2">
-          {/* Topic & Selection */}
-          <div className="flex items-center justify-between">
-            <span className="rounded-full bg-[#7C3AED]/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#A855F7]">
-              {clip.topic}
-            </span>
-            <label className="flex items-center gap-1.5 text-xs text-[#A19EAA] cursor-pointer">
-              <span>Select</span>
-              <input
-                type="checkbox"
-                checked={clip.selected ?? false}
-                onChange={onToggleSelect}
-                className="h-4 w-4 rounded accent-[#7C3AED] cursor-pointer"
+      {/* Exporting Progress Modal Overlay */}
+      {isExporting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-3xl border border-[#232328] bg-[#141417] p-6 shadow-2xl text-center space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2563EB]/20 text-2xl text-[#60A5FA] animate-bounce">
+              🎬
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Rendering Reaction Short</h3>
+              <p className="text-xs text-[#8e8e93]">
+                Compositing dual video split, mixing audio, and burning subtitles...
+              </p>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-[#232328]">
+              <div
+                className="h-full bg-[#2563EB] transition-all duration-150"
+                style={{ width: `${exportProgress}%` }}
               />
-            </label>
+            </div>
+            <div className="text-xs font-mono text-[#60A5FA] font-bold">
+              {exportProgress}%
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── WORKSPACE GRID ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* LEFT COLUMN: 9:16 CANVAS PREVIEW */}
+        <div className="lg:col-span-6 flex flex-col items-center">
+          {/* 9:16 Frame Container */}
+          <div className="relative aspect-[9/16] w-full max-w-[340px] overflow-hidden rounded-3xl border border-[#232328] bg-black shadow-2xl select-none">
+            {/* Visual Layout Preview */}
+            {layout === "split-top-bottom" && (
+              <div className="flex h-full w-full flex-col">
+                {/* Top Half: Source Video */}
+                <div className="relative h-1/2 w-full overflow-hidden bg-black">
+                  <video
+                    ref={sourceVideoRef}
+                    src={sourceUrl}
+                    playsInline
+                    onTimeUpdate={handleTimeUpdate}
+                    className="h-full w-full object-cover"
+                  />
+                  <span className="absolute top-2 left-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[9px] text-[#93C5FD]">
+                    SOURCE
+                  </span>
+                </div>
+
+                {/* Divider Line */}
+                <div className="h-1 w-full bg-[#2563EB]" />
+
+                {/* Bottom Half: Reaction Video */}
+                <div className="relative h-1/2 w-full overflow-hidden bg-black">
+                  <video
+                    ref={reactionVideoRef}
+                    src={reactionUrl}
+                    playsInline
+                    className="h-full w-full object-cover -scale-x-100"
+                  />
+                  <span className="absolute top-2 left-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[9px] text-[#F43F5E]">
+                    REACTION 🎙️
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {layout === "split-bottom-top" && (
+              <div className="flex h-full w-full flex-col">
+                <div className="relative h-1/2 w-full overflow-hidden bg-black">
+                  <video
+                    ref={reactionVideoRef}
+                    src={reactionUrl}
+                    playsInline
+                    className="h-full w-full object-cover -scale-x-100"
+                  />
+                  <span className="absolute top-2 left-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[9px] text-[#F43F5E]">
+                    REACTION 🎙️
+                  </span>
+                </div>
+                <div className="h-1 w-full bg-[#2563EB]" />
+                <div className="relative h-1/2 w-full overflow-hidden bg-black">
+                  <video
+                    ref={sourceVideoRef}
+                    src={sourceUrl}
+                    playsInline
+                    onTimeUpdate={handleTimeUpdate}
+                    className="h-full w-full object-cover"
+                  />
+                  <span className="absolute top-2 left-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[9px] text-[#93C5FD]">
+                    SOURCE
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {layout === "pip-bottom-right" && (
+              <div className="relative h-full w-full overflow-hidden bg-black">
+                {/* Fullbleed Source */}
+                <video
+                  ref={sourceVideoRef}
+                  src={sourceUrl}
+                  playsInline
+                  onTimeUpdate={handleTimeUpdate}
+                  className="h-full w-full object-cover"
+                />
+
+                {/* Floating PiP Reaction Bubble */}
+                <div className="absolute bottom-16 right-4 h-28 w-28 overflow-hidden rounded-full border-2 border-[#2563EB] shadow-2xl bg-black">
+                  <video
+                    ref={reactionVideoRef}
+                    src={reactionUrl}
+                    playsInline
+                    className="h-full w-full object-cover -scale-x-100"
+                  />
+                </div>
+              </div>
+            )}
+
+            {layout === "side-by-side" && (
+              <div className="flex h-full w-full">
+                <div className="relative h-full w-1/2 overflow-hidden bg-black">
+                  <video
+                    ref={sourceVideoRef}
+                    src={sourceUrl}
+                    playsInline
+                    onTimeUpdate={handleTimeUpdate}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="w-1 h-full bg-[#2563EB]" />
+                <div className="relative h-full w-1/2 overflow-hidden bg-black">
+                  <video
+                    ref={reactionVideoRef}
+                    src={reactionUrl}
+                    playsInline
+                    className="h-full w-full object-cover -scale-x-100"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Kinetic Caption Overlay */}
+            {showCaptions && captionText && (
+              <div className="absolute inset-x-3 bottom-6 flex justify-center pointer-events-none">
+                <span
+                  className={cn(
+                    "rounded-xl bg-black/80 px-3 py-1.5 text-center text-xs font-bold shadow-lg backdrop-blur-xs",
+                    captionStyle === "yellow" ? "text-[#FBBF24]" : "text-white",
+                  )}
+                >
+                  {captionText}
+                </span>
+              </div>
+            )}
+
+            {/* Play Button Overlay */}
+            {!isPlaying && (
+              <button
+                type="button"
+                onClick={togglePlay}
+                className="absolute inset-0 m-auto flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-xs transition-transform hover:scale-110 border border-white/20 shadow-2xl"
+              >
+                <span className="text-xl ml-0.5">▶</span>
+              </button>
+            )}
           </div>
 
-          {/* Editable Title */}
-          {isEditingTitle ? (
+          {/* Scrubbing & Controls Bar */}
+          <div className="mt-4 w-full max-w-[340px] space-y-2">
+            <div className="flex items-center justify-between text-[11px] font-mono text-[#71717a]">
+              <span>{Math.floor(currentTime)}s</span>
+              <span>{Math.round(duration)}s</span>
+            </div>
             <input
-              type="text"
-              defaultValue={clip.title}
-              onBlur={(e) => {
-                onUpdateField("title", e.target.value);
-                setIsEditingTitle(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  onUpdateField("title", e.currentTarget.value);
-                  setIsEditingTitle(false);
-                }
-              }}
-              autoFocus
-              className="w-full rounded-lg border border-[#7C3AED] bg-[#1A1722] px-2 py-1 text-xs font-bold text-white focus:outline-none"
+              type="range"
+              min={0}
+              max={duration}
+              step={0.1}
+              value={currentTime}
+              onChange={(e) => handleSeek(Number(e.target.value))}
+              className="w-full accent-[#2563EB] cursor-pointer"
             />
-          ) : (
-            <h3
-              onClick={() => setIsEditingTitle(true)}
-              title="Click to edit title"
-              className="text-xs font-bold text-white line-clamp-1 cursor-pointer hover:text-[#8B5CF6] transition-colors"
-            >
-              {clip.title} ✏️
-            </h3>
-          )}
-
-          {/* Editable Hook */}
-          {isEditingHook ? (
-            <textarea
-              defaultValue={clip.hook}
-              rows={2}
-              onBlur={(e) => {
-                onUpdateField("hook", e.target.value);
-                setIsEditingHook(false);
-              }}
-              autoFocus
-              className="w-full rounded-lg border border-[#7C3AED] bg-[#1A1722] p-2 text-[11px] text-[#A19EAA] focus:outline-none"
-            />
-          ) : (
-            <p
-              onClick={() => setIsEditingHook(true)}
-              title="Click to edit opening hook"
-              className="text-[11px] text-[#A19EAA] line-clamp-2 leading-relaxed cursor-pointer hover:text-white transition-colors"
-            >
-              "{clip.hook}"
-            </p>
-          )}
-
-          {/* Subscores Grid */}
-          <div className="grid grid-cols-3 gap-1.5 pt-1 text-[10px]">
-            <div className="rounded-lg bg-[#1A1722] p-1.5 text-center">
-              <div className="text-[#6B6778]">Hook</div>
-              <div className="font-bold text-white">{clip.subscores.hook}%</div>
-            </div>
-            <div className="rounded-lg bg-[#1A1722] p-1.5 text-center">
-              <div className="text-[#6B6778]">Story</div>
-              <div className="font-bold text-white">{clip.subscores.story}%</div>
-            </div>
-            <div className="rounded-lg bg-[#1A1722] p-1.5 text-center">
-              <div className="text-[#6B6778]">Payoff</div>
-              <div className="font-bold text-white">{clip.subscores.payoff}%</div>
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={togglePlay}
+                className="rounded-xl border border-[#232328] bg-[#141417] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#1f1f23]"
+              >
+                {isPlaying ? "❚❚ Pause" : "▶ Play Reaction"}
+              </button>
             </div>
           </div>
         </div>
 
-        {/* ── Actions Row ── */}
-        <div className="space-y-2 pt-2 border-t border-[#262330]">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={onDownloadClip}
-              className="rounded-xl bg-[#7C3AED] py-2.5 text-center text-xs font-bold text-white shadow-md hover:bg-[#8B5CF6] transition-colors flex items-center justify-center gap-1.5"
-            >
-              <span>⬇️</span>
-              <span>Download 9:16</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const hashtags = "#shorts #reels #tiktok #viral #fyp";
-                const postText = `${clip.title}\n\n${clip.hook}\n\n${hashtags}`;
-                navigator.clipboard.writeText(postText);
-                toast.success("Copied caption & hashtags to clipboard!");
-              }}
-              className="rounded-xl border border-[#262330] bg-[#1A1722] py-2.5 text-center text-xs font-semibold text-white hover:border-[#7C3AED] transition-colors flex items-center justify-center gap-1.5"
-            >
-              <span>📋</span>
-              <span>Copy Post</span>
-            </button>
+        {/* RIGHT COLUMN: REACTION STUDIO SETTINGS PANEL */}
+        <div className="lg:col-span-6 space-y-6">
+          {/* 1. Layout Mode Switcher */}
+          <div className="rounded-3xl border border-[#232328] bg-[#141417] p-5 space-y-3">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider text-[#71717a]">
+              Layout Format
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: "split-top-bottom" as const, label: "Top & Bottom (Standard)", icon: "↕️" },
+                { id: "pip-bottom-right" as const, label: "Floating Bubble (PiP)", icon: "🔘" },
+                { id: "split-bottom-top" as const, label: "Bottom & Top", icon: "🔄" },
+                { id: "side-by-side" as const, label: "Side-by-Side (50/50)", icon: "↔️" },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => handleSaveSettings(m.id)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl border p-2.5 text-xs font-medium transition-all text-left",
+                    layout === m.id
+                      ? "border-[#2563EB] bg-[#2563EB]/15 text-white"
+                      : "border-[#232328] bg-[#18181c] text-[#8e8e93] hover:text-white",
+                  )}
+                >
+                  <span>{m.icon}</span>
+                  <span className="truncate">{m.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Would Post Quality Rating */}
-          <div className="flex items-center justify-between pt-1 text-[10px] text-[#6B6778]">
-            <span>Rate output:</span>
-            <div className="flex items-center gap-1">
+          {/* 2. Audio Mixer (Volume & Ducking) */}
+          <div className="rounded-3xl border border-[#232328] bg-[#141417] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider text-[#71717a]">
+                Audio Mixer
+              </h3>
               <button
                 type="button"
-                onClick={() => onPostEval(true)}
-                className={cn(
-                  "rounded px-2 py-0.5 font-semibold transition-colors",
-                  evalMark === true
-                    ? "bg-[#4ADE80] text-black"
-                    : "bg-[#1A1722] text-[#A19EAA] hover:text-white",
-                )}
+                onClick={handleDuckAudio}
+                className="text-[11px] text-[#60A5FA] hover:underline"
               >
-                👍 Would post
-              </button>
-              <button
-                type="button"
-                onClick={() => onPostEval(false)}
-                className={cn(
-                  "rounded px-2 py-0.5 font-semibold transition-colors",
-                  evalMark === false
-                    ? "bg-red-500 text-white"
-                    : "bg-[#1A1722] text-[#A19EAA] hover:text-white",
-                )}
-              >
-                👎 Won't post
+                Auto-Duck Voice
               </button>
             </div>
+
+            {/* Source Video Volume */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-[#8e8e93]">🔊 Video to React To Volume</span>
+                <span className="font-mono text-white">{sourceVolume}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={sourceVolume}
+                onChange={(e) => setSourceVolume(Number(e.target.value))}
+                className="w-full accent-[#2563EB] cursor-pointer"
+              />
+            </div>
+
+            {/* Reaction Mic Volume */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-[#8e8e93]">🎙️ Your Voice (Reaction) Volume</span>
+                <span className="font-mono text-white">{reactionVolume}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={reactionVolume}
+                onChange={(e) => setReactionVolume(Number(e.target.value))}
+                className="w-full accent-[#2563EB] cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* 3. Subtitles & Caption Customization */}
+          <div className="rounded-3xl border border-[#232328] bg-[#141417] p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider text-[#71717a]">
+                Reaction Subtitles
+              </h3>
+              <label className="flex items-center gap-2 text-xs text-[#8e8e93] cursor-pointer">
+                <span>Enable</span>
+                <input
+                  type="checkbox"
+                  checked={showCaptions}
+                  onChange={(e) => setShowCaptions(e.target.checked)}
+                  className="accent-[#2563EB]"
+                />
+              </label>
+            </div>
+
+            <input
+              type="text"
+              value={captionText}
+              onChange={(e) => setCaptionText(e.target.value)}
+              placeholder="Enter on-screen reaction hook..."
+              className="w-full rounded-xl border border-[#232328] bg-[#18181c] px-3.5 py-2 text-xs text-white focus:outline-none focus:border-[#2563EB]"
+            />
+
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {[
+                { id: "bold" as const, label: "Bold White" },
+                { id: "yellow" as const, label: "Viral Yellow" },
+                { id: "minimal" as const, label: "Minimal" },
+              ].map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => setCaptionStyle(st.id)}
+                  className={cn(
+                    "rounded-xl border py-1.5 text-center text-xs font-medium transition-colors",
+                    captionStyle === st.id
+                      ? "border-[#2563EB] bg-[#2563EB]/20 text-white"
+                      : "border-[#232328] bg-[#18181c] text-[#8e8e93] hover:text-white",
+                  )}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. Quick Actions */}
+          <div className="rounded-3xl border border-[#232328] bg-[#141417] p-5 flex items-center justify-between">
+            <div>
+              <h4 className="text-xs font-bold text-white">Need to react to a new clip?</h4>
+              <p className="text-[11px] text-[#71717a] mt-0.5">
+                Start a fresh reaction with your webcam
+              </p>
+            </div>
+            <Link
+              to="/app/clips/new"
+              className="rounded-xl border border-[#232328] bg-[#18181c] px-3.5 py-2 text-xs font-semibold text-white hover:border-[#2563EB] transition-colors"
+            >
+              + New Reaction
+            </Link>
           </div>
         </div>
       </div>

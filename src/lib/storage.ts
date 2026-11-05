@@ -9,6 +9,12 @@ export interface StoredProject {
   name: string;
   createdAt: number;
   updatedAt: number;
+  type?: "reaction" | "clips";
+  layout?: "split-top-bottom" | "split-bottom-top" | "pip-bottom-right" | "pip-bottom-left" | "side-by-side";
+  sourceName?: string;
+  reactionName?: string;
+  sourceVolume?: number;
+  reactionVolume?: number;
   fileName: string;
   fileSize: number;
   fileHash: string;
@@ -33,7 +39,25 @@ export interface StoredProject {
     score: number;
     hook: string;
     reason: string;
+    topic?: string;
+    badge?: string;
+    subscores?: {
+      hook: number;
+      story: number;
+      payoff: number;
+      clarity: number;
+      ending: number;
+    };
+    duration?: number;
+    selected?: boolean;
   }>;
+  generationSettings?: {
+    clipLength?: string;
+    clipCount?: string;
+    language?: string;
+    instructions?: string;
+  };
+  status?: "processing" | "ready" | "error";
 }
 
 const DB_NAME = "snippug_browser_db";
@@ -178,6 +202,19 @@ export async function saveProject(project: StoredProject): Promise<void> {
     tx.objectStore(STORE_PROJECTS).put(project);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * Get single project by ID
+ */
+export async function getProject(id: string): Promise<StoredProject | null> {
+  const db = await getIDB();
+  return new Promise((resolve) => {
+    const tx = db.transaction(STORE_PROJECTS, "readonly");
+    const req = tx.objectStore(STORE_PROJECTS).get(id);
+    req.onsuccess = () => resolve(req.result ?? null);
+    req.onerror = () => resolve(null);
   });
 }
 
