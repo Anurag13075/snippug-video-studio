@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Puggy } from "./Puggy";
 import { useSound } from "./sound";
+import { UserMenu } from "./UserMenu";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Puggy", href: "#puggy" },
-  { label: "Studio", href: "#studio" },
+  { label: "Studio", href: "/studio" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ];
@@ -34,7 +36,7 @@ export function SiteHeader() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <a href="#top" className="flex items-center gap-2.5 pressable">
+        <Link to="/" className="flex items-center gap-2.5 pressable">
           <span
             className={cn(
               "h-9 w-9 overflow-hidden rounded-[26%] shadow-key",
@@ -51,27 +53,44 @@ export function SiteHeader() {
           >
             SnipPug
           </span>
-        </a>
+        </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              onClick={() => play("click")}
-              className={cn(
-                "rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
-                onGlass
-                  ? "text-white/95 [text-shadow:0_1px_8px_rgba(10,25,10,0.5)] hover:bg-white/15"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-              )}
-            >
-              {item.label}
-            </a>
-          ))}
+          {NAV.map((item) =>
+            item.href.startsWith("/") ? (
+              <Link
+                key={item.href}
+                to={item.href}
+                onClick={() => play("click")}
+                className={cn(
+                  "rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
+                  onGlass
+                    ? "text-white/95 [text-shadow:0_1px_8px_rgba(10,25,10,0.5)] hover:bg-white/15"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={() => play("click")}
+                className={cn(
+                  "rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
+                  onGlass
+                    ? "text-white/95 [text-shadow:0_1px_8px_rgba(10,25,10,0.5)] hover:bg-white/15"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                {item.label}
+              </a>
+            ),
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
+          {/* Sound FX Toggle */}
           <button
             type="button"
             onClick={toggle}
@@ -102,13 +121,18 @@ export function SiteHeader() {
               </svg>
             )}
           </button>
-          <a
-            href="#studio"
+
+          {/* User Menu with Google OAuth avatar or Sign in */}
+          <UserMenu onGlass={onGlass} />
+
+          {/* Launch Studio CTA */}
+          <Link
+            to="/studio"
             onClick={() => play("click")}
             className="inline-flex h-10 items-center rounded-full bg-white px-5 text-sm font-semibold text-cocoa shadow-[0_6px_20px_-6px_rgba(15,30,15,0.45)] transition-all hover:-translate-y-px"
           >
             Open Studio
-          </a>
+          </Link>
         </div>
       </div>
     </header>

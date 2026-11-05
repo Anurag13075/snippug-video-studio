@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import heroHills from "@/assets/hero-hills.jpg";
 import { InteractivePuggy } from "./Puggy";
 import { useSnipCount } from "./useSnipCount";
@@ -82,8 +83,8 @@ export function Hero() {
           </p>
 
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <a
-              href="#studio"
+            <Link
+              to="/studio"
               onClick={() => play("click")}
               className="inline-flex h-13 items-center gap-2 rounded-full bg-white px-8 text-base font-semibold text-cocoa shadow-[0_10px_30px_-8px_rgba(15,30,15,0.5)] transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_36px_-8px_rgba(15,30,15,0.55)] active:translate-y-0"
             >
@@ -91,8 +92,8 @@ export function Hero() {
                 <path d="m10 8 6 4-6 4V8z" fill="currentColor" stroke="none" />
                 <rect x="2.5" y="5" width="19" height="14" rx="3" />
               </svg>
-              Open the Studio
-            </a>
+              Open Studio (Full Workspace)
+            </Link>
             <a
               href="#how-it-works"
               onClick={() => play("pop")}
@@ -107,7 +108,7 @@ export function Hero() {
         </div>
       </section>
 
-      {/* stat strip, on paper like TapMac's stats */}
+      {/* stat strip */}
       <section className="px-4 pb-4 pt-10">
         <div className="mx-auto grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
           <StatCard sub="and counting. That's a lot of Reels.">
