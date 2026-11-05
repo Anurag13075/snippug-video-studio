@@ -118,8 +118,8 @@ export function LoginPage() {
       <div className="flex flex-1 flex-col justify-between bg-[#121110] p-6 sm:p-12 lg:p-16">
         {/* Top Right Social Proof Rating */}
         <div className="flex items-center justify-end gap-1.5 text-xs text-[#A89F91]">
-          <div className="flex text-amber-400">★★★★★</div>
-          <span className="font-medium text-[#D4C8B8]">Used by 8,000+ creators</span>
+        
+        
         </div>
 
         {/* Center Auth Card Box */}
