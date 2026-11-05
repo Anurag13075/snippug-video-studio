@@ -1,7 +1,9 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { useSound } from "@/components/snippug/sound";
+import { StudioNavRail } from "./StudioNavRail";
+import { StudioOnboardingView } from "./StudioOnboardingView";
 import { StudioHeader } from "./StudioHeader";
 import { LeftSidebar } from "./LeftSidebar";
 import { CenterCanvas } from "./CenterCanvas";
@@ -14,6 +16,11 @@ export function StudioLayout() {
   const state = useStudioState();
   const { isPro } = useAuth();
   const { play } = useSound();
+
+  const [currentTab, setCurrentTab] = useState<
+    "home" | "starred" | "exports" | "tutorials" | "changelog"
+  >("home");
+  const [openUploadModal, setOpenUploadModal] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const srcNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
@@ -255,90 +262,111 @@ export function StudioLayout() {
   });
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#14100c] text-[#F5E6CB] select-none">
-      {/* Studio Header */}
-      <StudioHeader
-        fileName={state.fileName}
-        duration={state.duration}
-        onExport={handleExportCurrent}
-        exporting={state.exporting}
-        snipCount={state.snipQueue.length}
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0a0a0b] text-[#EDEDED] select-none">
+      {/* ── Left Modern App Rail (Videocaptions.ai style) ── */}
+      <StudioNavRail
+        currentTab={currentTab}
+        setCurrentTab={setCurrentTab}
+        exportCount={state.snipQueue.length}
       />
 
-      {/* 3-Column Editorial Workspace */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar */}
-        <LeftSidebar
-          src={state.src}
-          fileName={state.fileName}
-          duration={state.duration}
-          aspect={state.aspect}
-          setAspect={state.setAspect}
-          reframe={state.reframe}
-          setReframe={state.setReframe}
+      {/* ── Center Content Area ── */}
+      {!state.src ? (
+        /* If no video loaded: Show Dashboard / Onboarding Hub from Screenshot */
+        <StudioOnboardingView
           onFileUpload={state.loadFile}
           onSampleLoad={(url, title) => state.loadSource(url, title)}
+          openUploadModal={openUploadModal}
+          setOpenUploadModal={setOpenUploadModal}
         />
+      ) : (
+        /* Once a video is loaded: Full Professional Video Editing Workspace */
+        <div className="flex flex-1 flex-col overflow-hidden bg-[#121110]">
+          {/* Header Bar */}
+          <StudioHeader
+            fileName={state.fileName}
+            duration={state.duration}
+            onExport={handleExportCurrent}
+            exporting={state.exporting}
+            snipCount={state.snipQueue.length}
+          />
 
-        {/* Center Canvas */}
-        <CenterCanvas
-          src={state.src}
-          videoRef={state.videoRef}
-          canvasRef={state.canvasRef}
-          duration={state.duration}
-          time={state.time}
-          setTime={state.setTime}
-          playing={state.playing}
-          setPlaying={state.setPlaying}
-          aspect={state.aspect}
-          reframe={state.reframe}
-          caption={state.caption}
-          watermark={isPro ? state.exportConfig.watermark : true}
-          exporting={state.exporting}
-          exportProgress={state.exportProgress}
-          onCancelExport={() => {
-            state.cancelRef.current = true;
-          }}
-          onLoadedMetadata={state.onLoadedMetadata}
-          togglePlay={state.togglePlay}
-          markIn={state.markIn}
-          markOut={state.markOut}
-          nudge={state.nudge}
-          dragOver={state.dragOver}
-          setDragOver={state.setDragOver}
-          onFileUpload={state.loadFile}
-        />
+          {/* 3-Column Video Workspace */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Left Controls & Media */}
+            <LeftSidebar
+              src={state.src}
+              fileName={state.fileName}
+              duration={state.duration}
+              aspect={state.aspect}
+              setAspect={state.setAspect}
+              reframe={state.reframe}
+              setReframe={state.setReframe}
+              onFileUpload={state.loadFile}
+              onSampleLoad={(url, title) => state.loadSource(url, title)}
+            />
 
-        {/* Right Sidebar */}
-        <RightSidebar
-          caption={state.caption}
-          setCaption={state.setCaption}
-          exportConfig={state.exportConfig}
-          setExportConfig={state.setExportConfig}
-          sfxVolume={state.sfxVolume}
-          setSfxVolume={state.setSfxVolume}
-        />
-      </div>
+            {/* Center Canvas */}
+            <CenterCanvas
+              src={state.src}
+              videoRef={state.videoRef}
+              canvasRef={state.canvasRef}
+              duration={state.duration}
+              time={state.time}
+              setTime={state.setTime}
+              playing={state.playing}
+              setPlaying={state.setPlaying}
+              aspect={state.aspect}
+              reframe={state.reframe}
+              caption={state.caption}
+              watermark={isPro ? state.exportConfig.watermark : true}
+              exporting={state.exporting}
+              exportProgress={state.exportProgress}
+              onCancelExport={() => {
+                state.cancelRef.current = true;
+              }}
+              onLoadedMetadata={state.onLoadedMetadata}
+              togglePlay={state.togglePlay}
+              markIn={state.markIn}
+              markOut={state.markOut}
+              nudge={state.nudge}
+              dragOver={state.dragOver}
+              setDragOver={state.setDragOver}
+              onFileUpload={state.loadFile}
+            />
 
-      {/* Bottom Timeline with Snip Queue */}
-      <BottomTimeline
-        duration={state.duration}
-        time={state.time}
-        inPt={state.inPt}
-        outPt={state.outPt}
-        zoom={state.timelineZoom}
-        onSetIn={state.setInPt}
-        onSetOut={state.setOutPt}
-        onSeek={state.seekTo}
-        onZoomIn={state.zoomIn}
-        onZoomOut={state.zoomOut}
-        snipQueue={state.snipQueue}
-        onRemoveSnip={state.removeSnip}
-        onExportSingle={handleExportSingle}
-        onExportAll={handleExportAll}
-        onAddCurrentSnip={state.addSnip}
-        exporting={state.exporting}
-      />
+            {/* Right Inspector Tabs (Captions / Soundboard / Export) */}
+            <RightSidebar
+              caption={state.caption}
+              setCaption={state.setCaption}
+              exportConfig={state.exportConfig}
+              setExportConfig={state.setExportConfig}
+              sfxVolume={state.sfxVolume}
+              setSfxVolume={state.setSfxVolume}
+            />
+          </div>
+
+          {/* Bottom Timeline with Waveform peaks & Snip Queue */}
+          <BottomTimeline
+            duration={state.duration}
+            time={state.time}
+            inPt={state.inPt}
+            outPt={state.outPt}
+            zoom={state.timelineZoom}
+            onSetIn={state.setInPt}
+            onSetOut={state.setOutPt}
+            onSeek={state.seekTo}
+            onZoomIn={state.zoomIn}
+            onZoomOut={state.zoomOut}
+            snipQueue={state.snipQueue}
+            onRemoveSnip={state.removeSnip}
+            onExportSingle={handleExportSingle}
+            onExportAll={handleExportAll}
+            onAddCurrentSnip={state.addSnip}
+            exporting={state.exporting}
+          />
+        </div>
+      )}
     </div>
   );
 }
