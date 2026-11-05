@@ -127,10 +127,6 @@ export function AppShell({ children, title, breadcrumbs }: AppShellProps) {
           {/* Brand Logo (Rendered Once) */}
           <Link to="/app" className="flex items-center gap-2.5 px-2 py-1 transition-opacity hover:opacity-90">
             <SnipPugLogo size="sm" withStudioBadge={false} />
-            <div className="flex items-center text-sm font-bold tracking-tight">
-              <span className="text-white">Snip</span>
-              <span className="text-[#F59E0B]">Pug</span>
-            </div>
           </Link>
 
           {/* Nav Sections */}

@@ -51,10 +51,10 @@ export const GROQ_CONFIG = {
   whisperModel: "whisper-large-v3-turbo",
   llmModel: "llama-3.3-70b-versatile",
   fastLlmModel: "llama-3.1-8b-instant",
-  // Groq hard limits
-  maxAudioChunkSizeBytes: 24 * 1024 * 1024, // 24 MB (Groq limit is 25 MB)
-  maxAudioChunkDurationSec: 600, // 10 minutes per chunk
-  overlapDurationSec: 3, // 3-second overlap for boundary de-duplication
+  // Groq & Vercel limits
+  maxAudioChunkSizeBytes: 4 * 1024 * 1024, // 4 MB (strictly under Vercel serverless 4.5 MB request limit)
+  maxAudioChunkDurationSec: 60, // 60s chunks ensure ~1.92MB WAV payload
+  overlapDurationSec: 2, // 2-second overlap for boundary de-duplication
   requestsPerMinute: 30,
   timeoutMs: 45000,
   maxRetries: 3,

@@ -71,7 +71,7 @@ export async function handleGroqApi(request: Request): Promise<Response> {
 
       if (audioFile.size > GROQ_CONFIG.maxAudioChunkSizeBytes) {
         return new Response(
-          JSON.stringify({ error: "Audio chunk exceeds maximum allowed size (24MB)" }),
+          JSON.stringify({ error: "Audio chunk exceeds maximum allowed size (4MB)" }),
           { status: 413, headers: { "content-type": "application/json" } },
         );
       }

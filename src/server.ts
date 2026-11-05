@@ -49,6 +49,13 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
+      if (url.pathname === "/favicon.ico") {
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "/favicon.svg" },
+        });
+      }
+
       if (url.pathname.startsWith("/api/groq")) {
         return await handleGroqApi(request);
       }

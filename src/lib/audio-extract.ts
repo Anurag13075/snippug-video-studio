@@ -94,8 +94,8 @@ export async function extractAudioFromBlob(videoBlob: Blob): Promise<AudioAnalys
  */
 export async function createWavChunks(
   audioBuffer: AudioBuffer,
-  maxChunkDurationSec = 300, // 5 minutes
-  overlapSec = 3,
+  maxChunkDurationSec = 60, // 60 seconds (~1.92MB WAV) strictly under Vercel's 4.5MB request limit
+  overlapSec = 2,
 ): Promise<AudioChunk[]> {
   const targetSampleRate = 16000;
   const totalDuration = audioBuffer.duration;
