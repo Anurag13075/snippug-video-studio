@@ -1,20 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import heroHills from "@/assets/hero-hills.jpg";
-import { SnipPugLogo } from "@/components/snippug/SnipPugLogo";
-import { Puggy } from "@/components/snippug/Puggy";
 import { useAuth } from "@/lib/auth";
 import { useSound } from "@/components/snippug/sound";
 import { handleAuthCallback } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign in — SnipPug Studio" },
+      { title: "Sign In — SnipPug Studio" },
       {
         name: "description",
-        content:
-          "Sign in to SnipPug with Google to unlock cloud project sync, Pro creator features, and unlimited batch clipping.",
+        content: "Sign in to SnipPug Studio with Google to access viral video clipping tools.",
       },
     ],
   }),
@@ -25,6 +23,7 @@ export function LoginPage() {
   const { user, signInWithGoogle, loading } = useAuth();
   const { play } = useSound();
   const navigate = useNavigate();
+  const [email, setEmail] = useState("");
   const [processing, setProcessing] = useState(false);
 
   // If already signed in or redirected with access token in hash, handle it
@@ -53,64 +52,96 @@ export function LoginPage() {
     signInWithGoogle();
   };
 
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !email.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    play("click");
+    toast.info("Entering SnipPug Studio as guest creator...", { duration: 3000 });
+    setTimeout(() => {
+      void navigate({ to: "/studio" });
+    }, 600);
+  };
+
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#14100c] px-4 py-12">
-      {/* ── Background Landscape Backdrop ── */}
-      <img
-        src={heroHills}
-        alt=""
-        width={1920}
-        height={1080}
-        className="absolute inset-0 h-full w-full object-cover opacity-90 scale-105 filter blur-[1px]"
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-[#14100c]/90"
-      />
+    <div className="flex min-h-screen w-full flex-col lg:grid lg:grid-cols-[1.15fr_1fr] bg-[#100f0e] text-[#EDEDED] select-none">
+      {/* ── Left Side: Gorgeous Scenic Landscape & Editorial Quotes (Exact match) ── */}
+      <div className="relative hidden flex-col justify-between overflow-hidden p-12 lg:flex">
+        {/* Full-bleed Photo Background */}
+        <img
+          src={heroHills}
+          alt="SnipPug Landscape"
+          width={1920}
+          height={1080}
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        />
 
-      {/* Subtle floating ambient light */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-40 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-amber-400/20 blur-3xl"
-      />
+        {/* Vibrant Blue Sky Gradient Overlay (Exact match to reference image) */}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-b from-[#1E5ED8]/95 via-[#1E5ED8]/75 to-transparent"
+        />
 
-      {/* ── Main Centered Tactile Auth Card ── */}
-      <div className="relative z-10 w-full max-w-md rounded-4xl border-[1.5px] border-white/20 bg-[#1e1914]/90 p-8 text-center text-[#F5E6CB] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.7)] backdrop-blur-xl sm:p-10">
-        {/* Top Mascot Squircle Badge */}
-        <div className="mx-auto w-fit">
-          <Link to="/" className="inline-block transition-transform hover:scale-105">
-            <SnipPugLogo size="lg" showWordmark={false} />
+        {/* Top Wordmark */}
+        <div className="relative z-10">
+          <Link
+            to="/"
+            className="font-mono text-xs font-bold tracking-[0.22em] text-white/90 hover:text-white"
+          >
+            SNIPPUG.AI
           </Link>
         </div>
 
-        {/* Heading */}
-        <h1 className="mt-5 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-          Welcome to <span className="serif-accent text-[#E6C395]">SnipPug</span>
-        </h1>
-        <p className="mx-auto mt-2 text-xs leading-relaxed text-[#A89F91] sm:text-sm">
-          The frame-perfect viral video clipper. Sign in to save clips, sync your Pro status, or continue as guest.
-        </p>
+        {/* Editorial Quote Box */}
+        <div className="relative z-10 max-w-lg space-y-6 text-white pb-6">
+          <blockquote className="text-2xl font-bold leading-snug tracking-tight sm:text-3xl [text-shadow:0_2px_12px_rgba(0,0,0,0.4)]">
+            “Built because every clipper tool I tried was either ugly, overpriced, or both. This one does what I actually needed.”
+          </blockquote>
+          <p className="text-xs font-semibold uppercase tracking-wider text-white/80">
+            The founder
+          </p>
 
-        {/* Status / Processing */}
-        {processing ? (
-          <div className="my-8 flex flex-col items-center justify-center gap-3 py-4">
-            <div className="h-16 w-16">
-              <Puggy mood="listening" bouncing className="h-full w-full" />
-            </div>
-            <p className="text-xs font-semibold text-[#E6C395] animate-pulse">
-              Connecting with Google...
+          <div className="h-px w-20 bg-white/30" />
+
+          <div className="space-y-2 text-xs leading-relaxed text-white/85 [text-shadow:0_1px_8px_rgba(0,0,0,0.5)]">
+            <p>“One upload and done, and they look better than what I made by hand.”</p>
+            <p>“Every other tool butchered the cuts. This one just gets it right.”</p>
+          </div>
+        </div>
+
+        <div className="relative z-10" />
+      </div>
+
+      {/* ── Right Side: Clean Dark Auth Card (Exact match to reference image) ── */}
+      <div className="flex flex-1 flex-col justify-between bg-[#121110] p-6 sm:p-12 lg:p-16">
+        {/* Top Right Social Proof Rating */}
+        <div className="flex items-center justify-end gap-1.5 text-xs text-[#A89F91]">
+          <div className="flex text-amber-400">★★★★★</div>
+          <span className="font-medium text-[#D4C8B8]">Used by 8,000+ creators</span>
+        </div>
+
+        {/* Center Auth Card Box */}
+        <div className="mx-auto my-auto w-full max-w-sm rounded-2xl border border-white/10 bg-[#191715] p-7 text-left shadow-2xl sm:p-8">
+          <div className="text-center">
+            <h1 className="text-lg font-bold text-white">
+              Sign in to SnipPug
+            </h1>
+            <p className="mt-1 text-xs text-[#8E867A]">
+              Welcome back! Please sign in to continue
             </p>
           </div>
-        ) : (
-          <div className="mt-8 space-y-3.5">
-            {/* Google OAuth Button */}
+
+          {/* Continue with Google Button */}
+          <div className="mt-6">
             <button
               type="button"
               onClick={handleGoogleClick}
               disabled={loading || processing}
-              className="pressable group relative flex h-13 w-full items-center justify-center gap-3 rounded-2xl border-[1.5px] border-b-4 border-[#3a2a1c] bg-white text-sm font-bold text-[#1a1612] shadow-key transition-all hover:bg-neutral-50 active:translate-y-1 active:border-b-[1.5px]"
+              className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-[#221F1C] text-xs font-semibold text-white transition-all hover:border-white/20 hover:bg-[#2A2622] disabled:opacity-50"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" className="shrink-0">
+              <svg width="17" height="17" viewBox="0 0 24 24" className="shrink-0">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
                   fill="#4285F4"
@@ -130,53 +161,62 @@ export function LoginPage() {
               </svg>
               <span>Continue with Google</span>
             </button>
+          </div>
 
-            {/* Divider */}
-            <div className="flex items-center gap-3 py-1">
-              <div className="h-px flex-1 bg-white/15" />
-              <span className="text-[11px] font-medium uppercase tracking-wider text-[#7A7163]">
-                or jump right in
-              </span>
-              <div className="h-px flex-1 bg-white/15" />
+          {/* Divider */}
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-white/10" />
+            <span className="text-[11px] text-[#7A7163]">or</span>
+            <div className="h-px flex-1 bg-white/10" />
+          </div>
+
+          {/* Email Input Form */}
+          <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-[#C8C0B5]">
+                Email address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email address"
+                className="h-10 w-full rounded-xl border border-white/10 bg-[#121110] px-3 text-xs text-white placeholder:text-[#5E5649] focus:border-white/30 focus:outline-none"
+              />
             </div>
 
-            {/* Guest Access Button */}
-            <Link
-              to="/studio"
-              onClick={() => play("click")}
-              className="pressable flex h-11 w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-white/20 bg-white/10 text-xs font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20"
+            {/* Continue Button */}
+            <button
+              type="submit"
+              className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-white text-xs font-bold text-[#121110] transition-all hover:bg-neutral-100 active:translate-y-px"
             >
-              <span>Try Studio as Guest (Free Forever)</span>
-              <span>→</span>
-            </Link>
-          </div>
-        )}
+              <span>Continue</span>
+              <span className="text-[10px]">▶</span>
+            </button>
+          </form>
 
-        {/* Feature Badges Strip */}
-        <div className="mt-8 grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/30 p-3 text-center">
-          <div className="space-y-0.5">
-            <div className="text-base">🔒</div>
-            <div className="text-[10px] font-bold text-[#F5E6CB]">100% Private</div>
-            <div className="text-[9px] text-[#7A7163]">On-device only</div>
-          </div>
-          <div className="space-y-0.5">
-            <div className="text-base">⚡</div>
-            <div className="text-[10px] font-bold text-[#F5E6CB]">Zero Queues</div>
-            <div className="text-[9px] text-[#7A7163]">No AI waiting</div>
-          </div>
-          <div className="space-y-0.5">
-            <div className="text-base">🐕</div>
-            <div className="text-[10px] font-bold text-[#F5E6CB]">Puggy Inside</div>
-            <div className="text-[9px] text-[#7A7163]">Never loses frame</div>
+          {/* Card Footer Badge */}
+          <div className="mt-6 border-t border-white/5 pt-4 text-center">
+            <span className="text-[10px] text-[#6A6255]">
+              Secured by <span className="font-semibold text-[#8E867A]">Supabase Auth</span>
+            </span>
           </div>
         </div>
 
-        {/* Footer info link */}
-        <div className="mt-6 flex items-center justify-between text-[11px] text-[#7A7163]">
-          <Link to="/" className="hover:text-[#F5E6CB]">
-            ← Back to Home
-          </Link>
-          <span>Puggy retains all treats 🦴</span>
+        {/* Bottom Switch to Guest & Legal Links */}
+        <div className="mx-auto mt-6 w-full max-w-sm space-y-3 text-center text-xs text-[#8E867A]">
+          <p>
+            Want to try without account?{" "}
+            <Link to="/studio" className="font-semibold text-white hover:underline">
+              Enter Studio as Guest
+            </Link>
+          </p>
+
+          <div className="flex justify-center gap-4 text-[11px] text-[#6A6255]">
+            <Link to="/" className="hover:text-[#A89F91]">Privacy Policy</Link>
+            <span>·</span>
+            <Link to="/" className="hover:text-[#A89F91]">Terms of Service</Link>
+          </div>
         </div>
       </div>
     </div>
