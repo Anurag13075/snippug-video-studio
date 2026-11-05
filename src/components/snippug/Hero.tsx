@@ -46,7 +46,10 @@ export function Hero() {
           {/* live counter */}
           <p className="text-[15px] font-medium text-white [text-shadow:0_1px_12px_rgba(10,25,10,0.55)]">
             Puggy has snipped{" "}
-            <span className="font-bold">{count === null ? "…" : count.toLocaleString()}</span> clips
+            <span className="font-bold" suppressHydrationWarning>
+              {count === null ? "…" : count.toLocaleString()}
+            </span>{" "}
+            clips
           </p>
 
           {/* app-icon mascot */}
@@ -112,7 +115,7 @@ export function Hero() {
       <section className="px-4 pb-4 pt-10">
         <div className="mx-auto grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
           <StatCard sub="and counting. That's a lot of Reels.">
-            {count === null ? "…" : count.toLocaleString()} snips
+            <span suppressHydrationWarning>{count === null ? "…" : count.toLocaleString()}</span> snips
           </StatCard>
           <StatCard sub="your footage stays on your machine.">0 uploads</StatCard>
           <StatCard sub="the Free plan is the whole clipper.">$0 today</StatCard>
