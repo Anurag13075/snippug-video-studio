@@ -8,8 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface StudioNavRailProps {
-  currentTab: "home" | "starred" | "exports" | "tutorials" | "changelog";
-  setCurrentTab: (tab: "home" | "starred" | "exports" | "tutorials" | "changelog") => void;
+  currentTab: "home" | "exports" | "tutorials" | "changelog";
+  setCurrentTab: (tab: "home" | "exports" | "tutorials" | "changelog") => void;
   exportCount: number;
 }
 
@@ -68,25 +68,6 @@ export function StudioNavRail({
 
           <button
             type="button"
-            onClick={() => setCurrentTab("starred")}
-            className={cn(
-              "flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-xs font-medium transition-colors",
-              currentTab === "starred"
-                ? "bg-[#1f1b16] font-semibold text-white shadow-sm"
-                : "text-[#A89F91] hover:bg-white/5 hover:text-white",
-            )}
-          >
-            <div className="flex items-center gap-2.5">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-              <span>Starred</span>
-            </div>
-            <span className="text-[10px] font-mono text-[#6A6255]">0</span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setCurrentTab("exports")}
             className={cn(
               "flex h-9 w-full items-center justify-between rounded-xl px-2.5 text-xs font-medium transition-colors",
@@ -101,7 +82,7 @@ export function StudioNavRail({
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>Exports</span>
+              <span>Exports Queue</span>
             </div>
             {exportCount > 0 && (
               <Badge className="h-4 bg-[#E6C395] px-1.5 text-[9px] font-bold text-[#1a1612]">
@@ -111,10 +92,10 @@ export function StudioNavRail({
           </button>
         </div>
 
-        {/* Learn Section */}
+        {/* Resources Section */}
         <div className="space-y-1">
           <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-[#6A6255]">
-            Learn
+            Resources
           </p>
 
           <button
@@ -159,12 +140,11 @@ export function StudioNavRail({
 
       {/* Bottom Profile & Pro Upgrade Card */}
       <div className="space-y-3 pt-4">
-        {/* Upgrade Card (shown if not Pro) */}
         {!isPro ? (
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#161412] p-3 text-left">
             <div className="text-xs font-bold text-white">Free plan</div>
             <p className="mt-0.5 text-[10px] leading-tight text-[#A89F91]">
-              Upgrade for HD 1080p exports, no watermark & batch queue.
+              Upgrade for 1080p exports, no watermark & batch queue.
             </p>
             <Button
               size="sm"

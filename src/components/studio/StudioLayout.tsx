@@ -18,9 +18,8 @@ export function StudioLayout() {
   const { play } = useSound();
 
   const [currentTab, setCurrentTab] = useState<
-    "home" | "starred" | "exports" | "tutorials" | "changelog"
+    "home" | "exports" | "tutorials" | "changelog"
   >("home");
-  const [openUploadModal, setOpenUploadModal] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const srcNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
@@ -262,25 +261,23 @@ export function StudioLayout() {
   });
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#0a0a0b] text-[#EDEDED] select-none">
-      {/* ── Left Modern App Rail (Videocaptions.ai style) ── */}
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0c0b0a] text-[#EDEDED] select-none">
+      {/* ── Left Clean App Rail (VideoCaptions style) ── */}
       <StudioNavRail
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
         exportCount={state.snipQueue.length}
       />
 
-      {/* ── Center Content Area ── */}
+      {/* ── Main Content Screen ── */}
       {!state.src ? (
-        /* If no video loaded: Show Dashboard / Onboarding Hub from Screenshot */
+        /* Exact clean centered Upload Card from Reference Image 1 */
         <StudioOnboardingView
           onFileUpload={state.loadFile}
           onSampleLoad={(url, title) => state.loadSource(url, title)}
-          openUploadModal={openUploadModal}
-          setOpenUploadModal={setOpenUploadModal}
         />
       ) : (
-        /* Once a video is loaded: Full Professional Video Editing Workspace */
+        /* Active Editing Workspace once video is dropped */
         <div className="flex flex-1 flex-col overflow-hidden bg-[#121110]">
           {/* Header Bar */}
           <StudioHeader
