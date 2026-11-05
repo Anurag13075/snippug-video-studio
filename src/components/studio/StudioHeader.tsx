@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Puggy } from "@/components/snippug/Puggy";
+import { SnipPugLogo } from "@/components/snippug/SnipPugLogo";
 import { UserMenu } from "@/components/snippug/UserMenu";
 import { useSound } from "@/components/snippug/sound";
 import { Button } from "@/components/ui/button";
@@ -26,22 +26,14 @@ export function StudioHeader({
 
   return (
     <header className="flex h-13 shrink-0 items-center justify-between border-b border-[#3a3228] bg-[#1a1612] px-4">
-      {/* Brand & Puggy */}
+      {/* Brand & Mascot Logo */}
       <div className="flex items-center gap-3">
         <Link
           to="/"
-          className="flex items-center gap-2 text-sm font-bold text-[#F5E6CB] transition-opacity hover:opacity-80"
+          className="transition-opacity hover:opacity-90"
         >
-          <div className="h-7 w-7 overflow-hidden rounded-lg border border-[#3a3228] bg-[#231E18]">
-            <Puggy mood="snip" className="h-full w-full scale-125" />
-          </div>
-          <span className="tracking-tight">SnipPug</span>
+          <SnipPugLogo size="sm" withStudioBadge={true} />
         </Link>
-        <span className="text-[#5E5649]">/</span>
-        <div className="flex items-center gap-1.5 rounded-full border border-[#3a3228] bg-[#231E18] px-2.5 py-0.5 text-xs text-[#E6C395]">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-semibold">Studio</span>
-        </div>
       </div>
 
       {/* File info */}

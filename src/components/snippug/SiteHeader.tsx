@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Puggy } from "./Puggy";
+import { SnipPugLogo } from "./SnipPugLogo";
 import { useSound } from "./sound";
 import { UserMenu } from "./UserMenu";
 import { cn } from "@/lib/utils";
@@ -36,23 +36,8 @@ export function SiteHeader() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2.5 pressable">
-          <span
-            className={cn(
-              "h-9 w-9 overflow-hidden rounded-[26%] shadow-key",
-              onGlass ? "border border-white/50" : "border-[1.5px] border-border",
-            )}
-          >
-            <Puggy mood="snip" className="h-full w-full translate-y-[3px] scale-125" />
-          </span>
-          <span
-            className={cn(
-              "text-lg font-bold tracking-tight",
-              onGlass && "text-white [text-shadow:0_1px_10px_rgba(10,25,10,0.5)]",
-            )}
-          >
-            SnipPug
-          </span>
+        <Link to="/" className="pressable">
+          <SnipPugLogo onGlass={onGlass} size="md" />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
