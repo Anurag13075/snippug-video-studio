@@ -97,7 +97,7 @@ export function LoginPage() {
         {/* Editorial Quote Box */}
         <div className="relative z-10 max-w-lg space-y-6 text-white pb-6">
           <blockquote className="text-2xl font-bold leading-snug tracking-tight sm:text-3xl [text-shadow:0_2px_12px_rgba(0,0,0,0.4)]">
-            “Built because every clipper tool I tried was either ugly, overpriced, or both. This one does what I actually needed.”
+            “Built because never seen a good prodcut for reaction videos which is one of the biggest niche in social media"
           </blockquote>
           <p className="text-xs font-semibold uppercase tracking-wider text-white/80">
             The founder
@@ -106,7 +106,7 @@ export function LoginPage() {
           <div className="h-px w-20 bg-white/30" />
 
           <div className="space-y-2 text-xs leading-relaxed text-white/85 [text-shadow:0_1px_8px_rgba(0,0,0,0.5)]">
-            <p>“One upload and done, and they look better than what I made by hand.”</p>
+            <p>“One upload and done, No need to open capcut .”</p>
             <p>“Every other tool butchered the cuts. This one just gets it right.”</p>
           </div>
         </div>
@@ -185,7 +185,6 @@ export function LoginPage() {
               />
             </div>
 
-            {/* Continue Button */}
             <button
               type="submit"
               className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-white text-xs font-bold text-[#121110] transition-all hover:bg-neutral-100 active:translate-y-px"
