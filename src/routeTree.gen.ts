@@ -12,8 +12,23 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppClipsNewRouteImport } from './routes/app.clips.new'
+import { Route as AppClipsRunIdRouteImport } from './routes/app.clips.$runId'
+import { Route as AppCaptionsNewRouteImport } from './routes/app.captions.new'
+import { Route as AppProjectsRouteImport } from './routes/app.projects'
+import { Route as AppStarredRouteImport } from './routes/app.starred'
+import { Route as AppExportsRouteImport } from './routes/app.exports'
+import { Route as AppStudioProjectIdRouteImport } from './routes/app.studio.$projectId'
+import { Route as AppBrandKitRouteImport } from './routes/app.brand-kit'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppBillingRouteImport } from './routes/app.billing'
+import { Route as AppHelpRouteImport } from './routes/app.help'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,6 +48,18 @@ const LoginRoute = LoginRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -45,20 +72,127 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppClipsNewRoute = AppClipsNewRouteImport.update({
+  id: '/clips/new',
+  path: '/clips/new',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppClipsRunIdRoute = AppClipsRunIdRouteImport.update({
+  id: '/clips/$runId',
+  path: '/clips/$runId',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppCaptionsNewRoute = AppCaptionsNewRouteImport.update({
+  id: '/captions/new',
+  path: '/captions/new',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppProjectsRoute = AppProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppStarredRoute = AppStarredRouteImport.update({
+  id: '/starred',
+  path: '/starred',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppExportsRoute = AppExportsRouteImport.update({
+  id: '/exports',
+  path: '/exports',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppStudioProjectIdRoute = AppStudioProjectIdRouteImport.update({
+  id: '/studio/$projectId',
+  path: '/studio/$projectId',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppBrandKitRoute = AppBrandKitRouteImport.update({
+  id: '/brand-kit',
+  path: '/brand-kit',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AppRoute,
+} as any)
+
+const AppHelpRoute = AppHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => AppRoute,
+} as any)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/studio': typeof StudioRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/pricing': typeof PricingRoute
   '/auth': typeof AuthRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/app': typeof AppRoute
+  '/app/': typeof AppIndexRoute
+  '/app/clips/new': typeof AppClipsNewRoute
+  '/app/clips/$runId': typeof AppClipsRunIdRoute
+  '/app/captions/new': typeof AppCaptionsNewRoute
+  '/app/projects': typeof AppProjectsRoute
+  '/app/starred': typeof AppStarredRoute
+  '/app/exports': typeof AppExportsRoute
+  '/app/studio/$projectId': typeof AppStudioProjectIdRoute
+  '/app/brand-kit': typeof AppBrandKitRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/billing': typeof AppBillingRoute
+  '/app/help': typeof AppHelpRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/studio': typeof StudioRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/pricing': typeof PricingRoute
   '/auth': typeof AuthRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/app': typeof AppIndexRoute
+  '/app/clips/new': typeof AppClipsNewRoute
+  '/app/clips/$runId': typeof AppClipsRunIdRoute
+  '/app/captions/new': typeof AppCaptionsNewRoute
+  '/app/projects': typeof AppProjectsRoute
+  '/app/starred': typeof AppStarredRoute
+  '/app/exports': typeof AppExportsRoute
+  '/app/studio/$projectId': typeof AppStudioProjectIdRoute
+  '/app/brand-kit': typeof AppBrandKitRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/billing': typeof AppBillingRoute
+  '/app/help': typeof AppHelpRoute
 }
 
 export interface FileRoutesById {
@@ -66,16 +200,91 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/studio': typeof StudioRoute
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/pricing': typeof PricingRoute
   '/auth': typeof AuthRoute
   '/auth/callback': typeof AuthCallbackRoute
+  '/app': typeof AppRoute
+  '/app/': typeof AppIndexRoute
+  '/app/clips/new': typeof AppClipsNewRoute
+  '/app/clips/$runId': typeof AppClipsRunIdRoute
+  '/app/captions/new': typeof AppCaptionsNewRoute
+  '/app/projects': typeof AppProjectsRoute
+  '/app/starred': typeof AppStarredRoute
+  '/app/exports': typeof AppExportsRoute
+  '/app/studio/$projectId': typeof AppStudioProjectIdRoute
+  '/app/brand-kit': typeof AppBrandKitRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/billing': typeof AppBillingRoute
+  '/app/help': typeof AppHelpRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/studio' | '/login' | '/auth' | '/auth/callback'
+  fullPaths:
+    | '/'
+    | '/studio'
+    | '/login'
+    | '/signup'
+    | '/pricing'
+    | '/auth'
+    | '/auth/callback'
+    | '/app'
+    | '/app/'
+    | '/app/clips/new'
+    | '/app/clips/$runId'
+    | '/app/captions/new'
+    | '/app/projects'
+    | '/app/starred'
+    | '/app/exports'
+    | '/app/studio/$projectId'
+    | '/app/brand-kit'
+    | '/app/settings'
+    | '/app/billing'
+    | '/app/help'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/studio' | '/login' | '/auth' | '/auth/callback'
-  id: '__root__' | '/' | '/studio' | '/login' | '/auth' | '/auth/callback'
+  to:
+    | '/'
+    | '/studio'
+    | '/login'
+    | '/signup'
+    | '/pricing'
+    | '/auth'
+    | '/auth/callback'
+    | '/app'
+    | '/app/clips/new'
+    | '/app/clips/$runId'
+    | '/app/captions/new'
+    | '/app/projects'
+    | '/app/starred'
+    | '/app/exports'
+    | '/app/studio/$projectId'
+    | '/app/brand-kit'
+    | '/app/settings'
+    | '/app/billing'
+    | '/app/help'
+  id:
+    | '__root__'
+    | '/'
+    | '/studio'
+    | '/login'
+    | '/signup'
+    | '/pricing'
+    | '/auth'
+    | '/auth/callback'
+    | '/app'
+    | '/app/'
+    | '/app/clips/new'
+    | '/app/clips/$runId'
+    | '/app/captions/new'
+    | '/app/projects'
+    | '/app/starred'
+    | '/app/exports'
+    | '/app/studio/$projectId'
+    | '/app/brand-kit'
+    | '/app/settings'
+    | '/app/billing'
+    | '/app/help'
   fileRoutesById: FileRoutesById
 }
 
@@ -83,57 +292,41 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   StudioRoute: typeof StudioRoute
   LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
+  PricingRoute: typeof PricingRoute
   AuthRoute: typeof AuthRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  AppRoute: typeof AppRoute
 }
 
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/studio': {
-      id: '/studio'
-      path: '/studio'
-      fullPath: '/studio'
-      preLoaderRoute: typeof StudioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/callback': {
-      id: '/auth/callback'
-      path: '/auth/callback'
-      fullPath: '/auth/callback'
-      preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-  }
+const appRouteChildren = {
+  AppIndexRoute: AppIndexRoute,
+  AppClipsNewRoute: AppClipsNewRoute,
+  AppClipsRunIdRoute: AppClipsRunIdRoute,
+  AppCaptionsNewRoute: AppCaptionsNewRoute,
+  AppProjectsRoute: AppProjectsRoute,
+  AppStarredRoute: AppStarredRoute,
+  AppExportsRoute: AppExportsRoute,
+  AppStudioProjectIdRoute: AppStudioProjectIdRoute,
+  AppBrandKitRoute: AppBrandKitRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppBillingRoute: AppBillingRoute,
+  AppHelpRoute: AppHelpRoute,
 }
+
+const AppRouteWithChildren = AppRoute._addFileChildren(appRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   StudioRoute: StudioRoute,
   LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
+  PricingRoute: PricingRoute,
   AuthRoute: AuthRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  AppRoute: AppRouteWithChildren,
 }
+
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
