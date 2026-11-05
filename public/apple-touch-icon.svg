@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <radialGradient id="tabBg2" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FFFDF7" />
+      <stop offset="60%" stop-color="#F5E4C9" />
+      <stop offset="100%" stop-color="#E5CA9E" />
+    </radialGradient>
+    <linearGradient id="tabEar2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#553A26" />
+      <stop offset="100%" stop-color="#3A2518" />
+    </linearGradient>
+    <linearGradient id="tabFawn2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#E8C59A" />
+      <stop offset="100%" stop-color="#D4A775" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#tabBg2)" stroke="#3A2518" stroke-width="2.5" />
+  <path d="M14 18 C 6 15, 4 32, 10 38 C 14 42, 20 38, 19 30 C 18 24, 16 20, 14 18 Z" fill="url(#tabEar2)" stroke="#2C1A10" stroke-width="1.8" stroke-linejoin="round" />
+  <path d="M50 18 C 58 15, 60 32, 54 38 C 50 42, 44 38, 45 30 C 46 24, 48 20, 50 18 Z" fill="url(#tabEar2)" stroke="#2C1A10" stroke-width="1.8" stroke-linejoin="round" />
+  <ellipse cx="32" cy="34" rx="22" ry="20" fill="url(#tabFawn2)" stroke="#2C1A10" stroke-width="2" />
+  <path d="M28 20 Q 32 17 36 20" stroke="#B38654" stroke-width="1.5" stroke-linecap="round" fill="none" />
+  <path d="M27 23 Q 32 20 37 23" stroke="#B38654" stroke-width="1.5" stroke-linecap="round" fill="none" />
+  <ellipse cx="32" cy="41" rx="13" ry="10" fill="#FBF3E6" stroke="#D4A775" stroke-width="1.2" />
+  <circle cx="23" cy="31" r="4.5" fill="#2C1A10" />
+  <circle cx="21.8" cy="29.6" r="1.8" fill="#FFFFFF" />
+  <circle cx="24.5" cy="32.2" r="0.8" fill="#FFFFFF" />
+  <circle cx="41" cy="31" r="4.5" fill="#2C1A10" />
+  <circle cx="39.8" cy="29.6" r="1.8" fill="#FFFFFF" />
+  <circle cx="42.5" cy="32.2" r="0.8" fill="#FFFFFF" />
+  <ellipse cx="16" cy="37" rx="3.5" ry="2.2" fill="#FFA5B5" opacity="0.85" />
+  <ellipse cx="48" cy="37" rx="3.5" ry="2.2" fill="#FFA5B5" opacity="0.85" />
+  <path d="M29 35 H35 C36.5 35 36.5 37 35 39 C33.5 41 30.5 41 29 39 C27.5 37 27.5 35 29 35 Z" fill="#2C1A10" />
+  <path d="M28 41 Q 32 43.5 36 41" stroke="#2C1A10" stroke-width="1.5" stroke-linecap="round" fill="none" />
+  <path d="M30 41.5 C 30 46, 34 46, 34 41.5 Z" fill="#EF8896" stroke="#2C1A10" stroke-width="1.2" />
+  <path d="M2 18 C 2 9.16 9.16 2 18 2 L46 2 C 54.84 2 62 9.16 62 18 L62 26 C 45 28 19 28 2 26 Z" fill="#FFFFFF" opacity="0.22" />
+</svg>
