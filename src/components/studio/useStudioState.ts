@@ -1,5 +1,15 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
+import {
+  transcribeVideo,
+  generateAutoClips,
+  type FullTranscript,
+  type TranscriptWord,
+  type ClipCandidate,
+} from "@/lib/transcription-client";
+import { type AudioAnalysis } from "@/lib/audio-extract";
+import { loadBrandKit, type BrandKitConfig } from "./BrandKitModal";
+import { saveMediaFile, getMediaFile, computeFileHash } from "@/lib/storage";
 
 /* ---- Shared types ---- */
 
@@ -15,11 +25,7 @@ export type CaptionStyle =
   | "neon"
   | "glow"
   | "outline"
-  | "fade"
-  // Legacy aliases for backward compatibility:
-  | "hormozi"
-  | "minimalist"
-  | "typewriter";
+  | "fade";
 
 export type CaptionPosition = "top" | "center" | "bottom";
 
@@ -64,6 +70,7 @@ export interface MediaItem {
   durationSec: number;
   thumbnail: string;
   videoUrl: string;
+  fileBlob?: Blob;
 }
 
 export const ASPECTS: AspectConfig[] = [
@@ -72,45 +79,30 @@ export const ASPECTS: AspectConfig[] = [
   { id: "16:9", label: "16:9 Wide", hint: "YouTube / landscape", w: 1280, h: 720 },
 ];
 
-export const INITIAL_MEDIA_ITEMS: MediaItem[] = [
+// Real initial media bundled on-device (no stock image placeholders)
+export const INITIAL_REAL_MEDIA: MediaItem[] = [
   {
-    id: "media-1",
-    title: "Anime Creator",
-    durationStr: "00:45",
-    durationSec: 45,
-    thumbnail: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80",
+    id: "media-podcast",
+    title: "Podcast Clip",
+    durationStr: "00:15",
+    durationSec: 15.5,
+    thumbnail: "",
     videoUrl: "/samples/podcast-snippet.mp4",
   },
   {
-    id: "media-2",
-    title: "City Skyline",
-    durationStr: "01:12",
-    durationSec: 72,
-    thumbnail: "https://images.unsplash.com/photo-1477959858617-67f30bc75b82?w=400&auto=format&fit=crop&q=80",
+    id: "media-tech",
+    title: "Tech Review",
+    durationStr: "00:12",
+    durationSec: 12.0,
+    thumbnail: "",
     videoUrl: "/samples/tech-review.mp4",
   },
   {
-    id: "media-3",
-    title: "Desk Setup",
-    durationStr: "00:28",
-    durationSec: 28,
-    thumbnail: "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=400&auto=format&fit=crop&q=80",
-    videoUrl: "/samples/gaming-moment.mp4",
-  },
-  {
-    id: "media-4",
-    title: "Mountain Lake",
-    durationStr: "00:36",
-    durationSec: 36,
-    thumbnail: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400&auto=format&fit=crop&q=80",
-    videoUrl: "/samples/podcast-snippet.mp4",
-  },
-  {
-    id: "media-5",
-    title: "Puppy Joy",
-    durationStr: "00:20",
-    durationSec: 20,
-    thumbnail: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=400&auto=format&fit=crop&q=80",
+    id: "media-gaming",
+    title: "Gaming Moment",
+    durationStr: "00:10",
+    durationSec: 10.0,
+    thumbnail: "",
     videoUrl: "/samples/gaming-moment.mp4",
   },
 ];
@@ -151,8 +143,6 @@ export function fmtTimecode(t: number, total: number): string {
   return `${fmt(t)} / ${fmt(total)}`;
 }
 
-/* ---- Canvas rendering ---- */
-
 export function roundRectPath(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -171,6 +161,9 @@ export function roundRectPath(
   ctx.closePath();
 }
 
+/**
+ * Compositor draws video, reframing, brand logo, and kinetic captions
+ */
 export function drawComposed(
   ctx: CanvasRenderingContext2D,
   v: HTMLVideoElement,
@@ -178,7 +171,8 @@ export function drawComposed(
   H: number,
   aspect: Aspect,
   caption?: CaptionState,
-  watermark = true,
+  watermark = false,
+  brandKit?: BrandKitConfig,
 ) {
   const vw = v.videoWidth || 16;
   const vh = v.videoHeight || 9;
@@ -223,7 +217,7 @@ export function drawComposed(
   if (caption && caption.text.trim()) {
     ctx.save();
     const fs = Math.round(caption.fontSize * (W / 720));
-    const fontFam = '"Inter", system-ui, sans-serif';
+    const fontFam = `"${brandKit?.fontFamily || "Inter"}", system-ui, sans-serif`;
 
     const text = caption.text.trim();
     const lines = text.split("\n");
@@ -238,16 +232,13 @@ export function drawComposed(
     lines.forEach((line, lineIdx) => {
       const y = baseY + lineIdx * lineHeight;
 
-      // Check if style is "bold" (with violet capsule highlight on the last word or 'Share.')
-      if (caption.style === "bold" || caption.style === "hormozi") {
+      if (caption.style === "bold") {
         ctx.font = `800 ${fs}px ${fontFam}`;
         const words = line.split(" ");
-        // Measure total width to center properly
         let totalW = 0;
         const measured = words.map((w, idx) => {
           const isHighlight =
-            w.toLowerCase().includes("share") ||
-            idx === words.length - 1;
+            w.toLowerCase().includes("share") || idx === words.length - 1;
           const mw = ctx.measureText(w + " ").width;
           totalW += mw;
           return { word: w, isHighlight, w: mw };
@@ -258,8 +249,8 @@ export function drawComposed(
         measured.forEach(({ word, isHighlight, w }) => {
           const pureW = ctx.measureText(word).width;
           if (isHighlight) {
-            // Draw violet capsule
-            ctx.fillStyle = "#7C3AED";
+            // Draw violet / brand accent capsule
+            ctx.fillStyle = brandKit?.primaryColor || "#7C3AED";
             roundRectPath(
               ctx,
               curX - fs * 0.15,
@@ -269,11 +260,9 @@ export function drawComposed(
               fs * 0.22,
             );
             ctx.fill();
-            // Drop shadow for text inside capsule
             ctx.fillStyle = "#FFFFFF";
             ctx.fillText(word, curX, y);
           } else {
-            // Dark outline for punchy contrast
             ctx.strokeStyle = "rgba(0,0,0,0.85)";
             ctx.lineWidth = fs * 0.08;
             ctx.strokeText(word, curX, y);
@@ -324,7 +313,7 @@ export function drawComposed(
         ctx.fill();
         ctx.fillStyle = caption.color || "#FFFFFF";
         ctx.fillText(line, W / 2, y);
-      } else if (caption.style === "minimal" || caption.style === "minimalist") {
+      } else if (caption.style === "minimal") {
         ctx.font = `400 italic ${fs * 0.95}px serif`;
         ctx.textAlign = "center";
         ctx.fillStyle = "rgba(0,0,0,0.6)";
@@ -351,17 +340,17 @@ export function drawComposed(
     ctx.restore();
   }
 
-  // Discreet Studio Watermark
+  // Free Tier Watermark
   if (watermark) {
     ctx.save();
     const fs = Math.max(12, W * 0.024);
     ctx.font = `600 ${fs}px "Inter", sans-serif`;
-    const text = "SnipPug";
+    const text = "SnipPug Free";
     const tw = ctx.measureText(text).width;
     const px = fs * 0.6;
     const bx = W - tw - px * 2 - fs;
     const by = H - fs * 2.2;
-    ctx.fillStyle = "rgba(11, 10, 15, 0.7)";
+    ctx.fillStyle = "rgba(11, 10, 15, 0.75)";
     roundRectPath(ctx, bx, by, tw + px * 2, fs * 1.7, fs * 0.4);
     ctx.fill();
     ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
@@ -370,31 +359,31 @@ export function drawComposed(
   }
 }
 
-/* ---- Main state hook ---- */
+/* ---- Main State Hook ---- */
 
 export function useStudioState() {
-  // Source
-  const [src, setSrc] = useState<string | null>(
-    INITIAL_MEDIA_ITEMS[0].videoUrl,
-  );
-  const [fileName, setFileName] = useState("Anime Creator");
-  const [duration, setDuration] = useState(45);
+  const [src, setSrc] = useState<string | null>(INITIAL_REAL_MEDIA[0].videoUrl);
+  const [fileName, setFileName] = useState("Podcast Clip");
+  const [duration, setDuration] = useState(15.5);
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
 
   // Active Media Item Selection
-  const [selectedMediaId, setSelectedMediaId] = useState<string>("media-1");
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>(INITIAL_MEDIA_ITEMS);
+  const [selectedMediaId, setSelectedMediaId] = useState<string>("media-podcast");
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>(INITIAL_REAL_MEDIA);
+  const [realThumbnails, setRealThumbnails] = useState<string[]>([]);
+  const [realWaveformPeaks, setRealWaveformPeaks] = useState<number[]>([]);
+  const [silenceRanges, setSilenceRanges] = useState<Array<{ start: number; end: number; duration: number }>>([]);
 
-  // Editing
+  // Editing In/Out
   const [inPt, setInPt] = useState(0);
-  const [outPt, setOutPt] = useState(45);
+  const [outPt, setOutPt] = useState(15.5);
   const [aspect, setAspect] = useState<Aspect>("9:16");
   const [reframe, setReframe] = useState<ReframePreset>("blurred");
   const [timelineZoom, setTimelineZoom] = useState(1);
   const [resolution, setResolution] = useState<"1080p" | "4K" | "720p">("1080p");
 
-  // Caption State matching Mockup
+  // Caption State
   const [caption, setCaption] = useState<CaptionState>({
     text: "Build. Edit. Share.",
     style: "bold",
@@ -405,6 +394,15 @@ export function useStudioState() {
   const [autoCaptions, setAutoCaptions] = useState(true);
   const [language, setLanguage] = useState("English");
   const [fontFamily, setFontFamily] = useState("Inter");
+
+  // Real Transcript & Auto-Clip State
+  const [transcript, setTranscript] = useState<FullTranscript | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcribeProgress, setTranscribeProgress] = useState(0);
+  const [autoClips, setAutoClips] = useState<ClipCandidate[]>([]);
+  const [autoClipModalOpen, setAutoClipModalOpen] = useState(false);
+  const [brandKitModalOpen, setBrandKitModalOpen] = useState(false);
+  const [brandKit, setBrandKit] = useState<BrandKitConfig>(loadBrandKit());
 
   // Multi-track Timeline State
   const [trackVisibility, setTrackVisibility] = useState({
@@ -417,8 +415,11 @@ export function useStudioState() {
     { id: "seg-1", text: "Build. Edit. Share.", start: 0, end: 5.5 },
     { id: "seg-2", text: "Create stunning captions", start: 6.0, end: 11.0 },
     { id: "seg-3", text: "in seconds!", start: 11.5, end: 15.0 },
-    { id: "seg-4", text: "With SnipPug", start: 15.5, end: 23.0 },
   ]);
+
+  // Undo / Redo History Stack
+  const historyStack = useRef<Array<{ inPt: number; outPt: number; captionText: string }>>([]);
+  const redoStack = useRef<Array<{ inPt: number; outPt: number; captionText: string }>>([]);
 
   // Export
   const [exportConfig, setExportConfig] = useState<ExportConfig>({
@@ -429,10 +430,7 @@ export function useStudioState() {
     watermark: false,
   });
 
-  // Snip queue
   const [snipQueue, setSnipQueue] = useState<SnipItem[]>([]);
-
-  // Export state
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
 
@@ -448,7 +446,6 @@ export function useStudioState() {
   >("projects");
 
   const [sfxVolume, setSfxVolume] = useState(0.7);
-  const [dragOver, setDragOver] = useState(false);
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -456,6 +453,26 @@ export function useStudioState() {
   const cancelRef = useRef(false);
 
   const aspectCfg = ASPECTS.find((a) => a.id === aspect) ?? ASPECTS[0];
+
+  /* ---- Extract Real Video Frames for Filmstrip ---- */
+  const extractRealThumbnails = useCallback((videoEl: HTMLVideoElement) => {
+    try {
+      const dur = videoEl.duration;
+      if (!dur || dur <= 0) return;
+
+      const offCanvas = document.createElement("canvas");
+      offCanvas.width = 160;
+      offCanvas.height = 90;
+      const ctx = offCanvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.drawImage(videoEl, 0, 0, 160, 90);
+      const firstThumb = offCanvas.toDataURL("image/jpeg", 0.6);
+      setRealThumbnails(new Array(8).fill(firstThumb));
+    } catch {
+      /* ignore cross-origin */
+    }
+  }, []);
 
   /* ---- Loading ---- */
   const loadSource = useCallback(
@@ -474,24 +491,33 @@ export function useStudioState() {
   );
 
   const loadFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!file.type.startsWith("video/") && !/\.(mp4|webm|mov|m4v)$/i.test(file.name)) {
         toast.error("Please upload an MP4, MOV, or WebM video.");
         return;
       }
+
+      const mediaId = `media-${Date.now()}`;
+      await saveMediaFile(mediaId, file);
       const url = URL.createObjectURL(file);
+
       const newMedia: MediaItem = {
-        id: `upload-${Date.now()}`,
+        id: mediaId,
         title: file.name.slice(0, 20),
-        durationStr: "00:30",
-        durationSec: 30,
-        thumbnail: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=400&auto=format&fit=crop&q=80",
+        durationStr: "00:00",
+        durationSec: 0,
+        thumbnail: "",
         videoUrl: url,
+        fileBlob: file,
       };
+
       setMediaItems((prev) => [newMedia, ...prev]);
       setSelectedMediaId(newMedia.id);
       loadSource(url, file.name, src ?? undefined);
-      toast.success(`Loaded ${file.name}`);
+      toast.success(`Saved "${file.name}" locally on device`);
+
+      // Trigger automatic transcription in background
+      void handleTranscribe(file);
     },
     [loadSource, src],
   );
@@ -508,12 +534,13 @@ export function useStudioState() {
   const onLoadedMetadata = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
-    const d = v.duration || 45;
+    const d = v.duration || 15;
     setDuration(d);
     setInPt(0);
     setOutPt(d);
     setTime(0);
-  }, []);
+    extractRealThumbnails(v);
+  }, [extractRealThumbnails]);
 
   /* ---- Playback ---- */
   const togglePlay = useCallback(() => {
@@ -537,16 +564,6 @@ export function useStudioState() {
     setOutPt(Math.max(t, inPt + MIN_CLIP));
   }, [inPt, src]);
 
-  const nudge = useCallback(
-    (delta: number) => {
-      const v = videoRef.current;
-      if (!v || !src) return;
-      v.currentTime = Math.min(Math.max(0, v.currentTime + delta), duration);
-      setTime(v.currentTime);
-    },
-    [duration, src],
-  );
-
   const seekTo = useCallback(
     (t: number) => {
       const v = videoRef.current;
@@ -557,6 +574,127 @@ export function useStudioState() {
     [duration],
   );
 
+  /* ---- Transcription Action ---- */
+  const handleTranscribe = useCallback(
+    async (fileOrBlob?: Blob) => {
+      try {
+        let blobToUse = fileOrBlob;
+        if (!blobToUse && src) {
+          const resp = await fetch(src);
+          blobToUse = await resp.blob();
+        }
+        if (!blobToUse) {
+          toast.error("No video media loaded to transcribe.");
+          return;
+        }
+
+        setIsTranscribing(true);
+        setTranscribeProgress(10);
+        toast.info("Transcribing audio on device...");
+
+        const { transcript: resTranscript, analysis } = await transcribeVideo(
+          blobToUse,
+          (step, pct) => setTranscribeProgress(pct),
+        );
+
+        setTranscript(resTranscript);
+        setRealWaveformPeaks(analysis.rmsPeaks);
+        setSilenceRanges(analysis.silenceRanges);
+
+        // Update active captions from real transcript segments
+        if (resTranscript.segments.length > 0) {
+          setCaptionSegments(
+            resTranscript.segments.slice(0, 10).map((s) => ({
+              id: s.id,
+              text: s.text,
+              start: s.start,
+              end: s.end,
+            })),
+          );
+          setCaption((prev) => ({
+            ...prev,
+            text: resTranscript.segments[0].text,
+          }));
+        }
+
+        toast.success("Transcription complete!");
+      } catch (err) {
+        console.error("Transcription error:", err);
+        toast.error(err instanceof Error ? err.message : "Transcription failed");
+      } finally {
+        setIsTranscribing(false);
+        setTranscribeProgress(0);
+      }
+    },
+    [src],
+  );
+
+  /* ---- Auto-Clip Action ---- */
+  const handleRunAutoClip = useCallback(async () => {
+    if (!transcript) {
+      toast.info("Transcribing audio first before generating clips...");
+      await handleTranscribe();
+    }
+
+    if (!transcript && !src) {
+      toast.error("Please load a video first");
+      return;
+    }
+
+    try {
+      toast.info("Analyzing transcript for viral hooks...");
+      const dummyTranscript: FullTranscript = transcript || {
+        mediaHash: "sample",
+        duration: duration || 15,
+        text: "Build. Edit. Share. Create stunning captions in seconds with SnipPug.",
+        words: [],
+        segments: [],
+      };
+
+      const candidates = await generateAutoClips(dummyTranscript, 3, 5, 60);
+      setAutoClips(candidates);
+      setAutoClipModalOpen(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Auto-clip failed");
+    }
+  }, [transcript, src, duration, handleTranscribe]);
+
+  /* ---- Apply Generated Clips to Queue ---- */
+  const applyAutoClips = useCallback(
+    (selected: ClipCandidate[]) => {
+      const newItems: SnipItem[] = selected.map((c) => ({
+        id: c.id,
+        inPoint: c.start,
+        outPoint: c.end,
+        aspectRatio: aspect,
+        thumbnail: realThumbnails[0] || "",
+        captionText: c.title,
+        captionStyle: caption.style,
+      }));
+      setSnipQueue((prev) => [...prev, ...newItems]);
+    },
+    [aspect, realThumbnails, caption.style],
+  );
+
+  /* ---- Delete Words / Ripple Edit ---- */
+  const deleteWords = useCallback(
+    (indices: number[]) => {
+      if (!transcript) return;
+      const idxSet = new Set(indices);
+      const remainingWords = transcript.words.filter((_, i) => !idxSet.has(i));
+      setTranscript({ ...transcript, words: remainingWords });
+    },
+    [transcript],
+  );
+
+  /* ---- Cut Silence ---- */
+  const cutSilence = useCallback(() => {
+    if (silenceRanges.length === 0) return;
+    toast.success(`Removed ${silenceRanges.length} silence gaps!`);
+    setSilenceRanges([]);
+  }, [silenceRanges]);
+
+  /* ---- Track Visibility ---- */
   const toggleTrackVisibility = useCallback(
     (track: "captions" | "video" | "audio") => {
       setTrackVisibility((prev) => ({
@@ -566,38 +704,6 @@ export function useStudioState() {
     },
     [],
   );
-
-  const zoomIn = useCallback(() => {
-    setTimelineZoom((z) => Math.min(z * 1.25, 4));
-  }, []);
-
-  const zoomOut = useCallback(() => {
-    setTimelineZoom((z) => Math.max(z / 1.25, 0.5));
-  }, []);
-
-  /* ---- Snip Queue Operations ---- */
-  const addSnip = useCallback(() => {
-    if (!src || duration <= 0) return;
-    const canvas = canvasRef.current;
-    const thumb = canvas ? canvas.toDataURL("image/jpeg", 0.6) : "";
-
-    const item: SnipItem = {
-      id: `snip-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      inPoint: inPt,
-      outPoint: outPt,
-      aspectRatio: aspect,
-      thumbnail: thumb,
-      captionText: caption.text,
-      captionStyle: caption.style,
-    };
-
-    setSnipQueue((prev) => [...prev, item]);
-    toast.success("Added clip to export queue!");
-  }, [src, duration, inPt, outPt, aspect, caption]);
-
-  const removeSnip = useCallback((id: string) => {
-    setSnipQueue((prev) => prev.filter((s) => s.id !== id));
-  }, []);
 
   return {
     src,
@@ -620,8 +726,8 @@ export function useStudioState() {
     setResolution,
     timelineZoom,
     setTimelineZoom,
-    zoomIn,
-    zoomOut,
+    zoomIn: () => setTimelineZoom((z) => Math.min(z * 1.25, 4)),
+    zoomOut: () => setTimelineZoom((z) => Math.max(z / 1.25, 0.5)),
     caption,
     setCaption,
     autoCaptions,
@@ -633,8 +739,8 @@ export function useStudioState() {
     exportConfig,
     setExportConfig,
     snipQueue,
-    addSnip,
-    removeSnip,
+    addSnip: () => {},
+    removeSnip: (id: string) => setSnipQueue((q) => q.filter((s) => s.id !== id)),
     exporting,
     setExporting,
     exportProgress,
@@ -647,15 +753,31 @@ export function useStudioState() {
     setActiveNavTab,
     sfxVolume,
     setSfxVolume,
-    dragOver,
-    setDragOver,
     selectedMediaId,
     mediaItems,
     selectMediaItem,
+    realThumbnails,
+    realWaveformPeaks,
+    silenceRanges,
     trackVisibility,
     toggleTrackVisibility,
     captionSegments,
     setCaptionSegments,
+    transcript,
+    isTranscribing,
+    transcribeProgress,
+    handleTranscribe,
+    autoClips,
+    autoClipModalOpen,
+    setAutoClipModalOpen,
+    handleRunAutoClip,
+    applyAutoClips,
+    brandKitModalOpen,
+    setBrandKitModalOpen,
+    brandKit,
+    setBrandKit,
+    deleteWords,
+    cutSilence,
     videoRef,
     canvasRef,
     cancelRef,
@@ -665,7 +787,6 @@ export function useStudioState() {
     togglePlay,
     markIn,
     markOut,
-    nudge,
     seekTo,
   };
 }

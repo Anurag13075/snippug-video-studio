@@ -16,6 +16,9 @@ interface BottomTimelineProps {
   };
   onToggleTrack: (track: "captions" | "video" | "audio") => void;
   captionSegments: Array<{ id: string; text: string; start: number; end: number }>;
+  realThumbnails?: string[];
+  realWaveformPeaks?: number[];
+  onOpenHelp?: () => void;
 }
 
 export function BottomTimeline({
@@ -28,6 +31,9 @@ export function BottomTimeline({
   trackVisibility,
   onToggleTrack,
   captionSegments,
+  realThumbnails = [],
+  realWaveformPeaks = [],
+  onOpenHelp = () => {},
 }: BottomTimelineProps) {
   const rulerRef = useRef<HTMLDivElement>(null);
   const totalDuration = duration || 25;
@@ -40,19 +46,9 @@ export function BottomTimeline({
 
   const playheadPct = Math.max(0, Math.min(100, (time / totalDuration) * 100));
 
-  // Frame thumbnail images for video filmstrip
-  const filmstripThumbnails = [
-    "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=160&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=160&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=160&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=160&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=160&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=160&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=160&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=160&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=160&auto=format&fit=crop&q=80",
-    "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=160&auto=format&fit=crop&q=80",
-  ];
+  // Generate 6 time ruler markers based on duration
+  const rulerInterval = Math.max(1, Math.round(totalDuration / 5));
+  const rulerMarkers = Array.from({ length: 6 }, (_, i) => `${i * rulerInterval}s`);
 
   return (
     <footer className="relative flex flex-col border-t border-[#262330] bg-[#131118]">
@@ -63,7 +59,7 @@ export function BottomTimeline({
           {/* Undo */}
           <button
             type="button"
-            onClick={() => toast.info("Undo")}
+            onClick={() => toast.info("Undo timeline edit")}
             aria-label="Undo"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-[#A19EAA] hover:bg-[#1A1722] hover:text-white"
           >
@@ -76,7 +72,7 @@ export function BottomTimeline({
           {/* Redo */}
           <button
             type="button"
-            onClick={() => toast.info("Redo")}
+            onClick={() => toast.info("Redo timeline edit")}
             aria-label="Redo"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-[#A19EAA] hover:bg-[#1A1722] hover:text-white"
           >
@@ -91,7 +87,7 @@ export function BottomTimeline({
           {/* Trim */}
           <button
             type="button"
-            onClick={() => toast.info("Trim tool activated")}
+            onClick={() => toast.info("Drag timeline in/out handles to trim")}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-[#A19EAA] hover:bg-[#1A1722] hover:text-white"
           >
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -99,7 +95,6 @@ export function BottomTimeline({
               <circle cx="6" cy="18" r="3" />
               <line x1="20" y1="4" x2="8.12" y2="15.88" />
               <line x1="14.47" y1="14.48" x2="20" y2="20" />
-              <line x1="8.12" y1="8.12" x2="12" y2="12" />
             </svg>
             <span>Trim</span>
           </button>
@@ -107,7 +102,7 @@ export function BottomTimeline({
           {/* Split */}
           <button
             type="button"
-            onClick={() => toast.info("Split at playhead")}
+            onClick={() => toast.info("Split clip at current playhead time")}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-[#A19EAA] hover:bg-[#1A1722] hover:text-white"
           >
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -121,13 +116,12 @@ export function BottomTimeline({
           {/* Delete */}
           <button
             type="button"
-            onClick={() => toast.info("Delete selected")}
+            onClick={() => toast.info("Cut or delete segment")}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-[#A19EAA] hover:bg-[#1A1722] hover:text-white"
           >
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 6h18" />
               <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
             </svg>
             <span>Delete</span>
           </button>
@@ -174,10 +168,10 @@ export function BottomTimeline({
 
           <div className="mx-1 h-4 w-px bg-[#262330]" />
 
-          {/* Fit Selector */}
+          {/* Fit */}
           <button
             type="button"
-            onClick={() => toast.info("Fit to view")}
+            onClick={() => toast.info("Zoom fitted to view")}
             className="flex items-center gap-1.5 rounded-lg border border-[#262330] bg-[#1A1722] px-2.5 py-1 text-xs font-medium text-white hover:border-[#7C3AED]/40"
           >
             <span>Fit</span>
@@ -192,7 +186,6 @@ export function BottomTimeline({
       <div className="relative flex">
         {/* Left Track Names Column */}
         <div className="w-[120px] shrink-0 border-r border-[#262330] bg-[#0F0E14] text-xs">
-          {/* Ruler Spacing */}
           <div className="h-7 border-b border-[#262330] px-3 py-1 text-[11px] font-mono text-[#6B6778]">
             Tracks
           </div>
@@ -265,9 +258,9 @@ export function BottomTimeline({
           onClick={handleSeekClick}
           className="relative flex-1 cursor-pointer overflow-hidden bg-[#0B0A0F]"
         >
-          {/* Time Ruler (0s, 5s, 10s, 15s, 20s, 25s) */}
+          {/* Time Ruler */}
           <div className="relative h-7 border-b border-[#262330] bg-[#131118]/80">
-            {["0s", "5s", "10s", "15s", "20s", "25s"].map((label, idx) => {
+            {rulerMarkers.map((label, idx) => {
               const leftPct = (idx / 5) * 96 + 2;
               return (
                 <div
@@ -282,76 +275,84 @@ export function BottomTimeline({
             })}
           </div>
 
-          {/* Track 1: Captions (Violet Capsule Blocks) */}
+          {/* Track 1: Captions (Violet Segment Blocks) */}
           <div className="relative flex h-11 items-center border-b border-[#262330]/40 px-2">
             {trackVisibility.captions && (
               <div className="flex w-full items-center gap-2">
-                {captionSegments.map((seg) => {
-                  return (
-                    <div
-                      key={seg.id}
-                      className="flex h-7 items-center justify-center rounded-lg bg-[#7C3AED] px-3 font-medium text-white shadow-sm shadow-[#7C3AED]/30 transition-all hover:bg-[#8B5CF6]"
-                    >
-                      <span className="truncate text-xs">{seg.text}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Track 2: Video (Filmstrip Thumbnails + Plus Slot) */}
-          <div className="relative flex h-12 items-center border-b border-[#262330]/40 px-2 overflow-hidden">
-            {trackVisibility.video && (
-              <div className="flex items-center gap-1">
-                {filmstripThumbnails.map((thumb, idx) => (
+                {captionSegments.map((seg) => (
                   <div
-                    key={idx}
-                    className="h-9 w-16 shrink-0 overflow-hidden rounded-md border border-[#262330] bg-black"
+                    key={seg.id}
+                    className="flex h-7 items-center justify-center rounded-lg bg-[#7C3AED] px-3 font-medium text-white shadow-sm shadow-[#7C3AED]/30 transition-all hover:bg-[#8B5CF6]"
                   >
-                    <img
-                      src={thumb}
-                      alt="frame"
-                      className="h-full w-full object-cover opacity-85"
-                    />
+                    <span className="truncate text-xs">{seg.text}</span>
                   </div>
                 ))}
-                {/* Plus Slot */}
-                <div className="flex h-9 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-[#262330] bg-[#1A1722]/50 text-white/50 hover:border-[#7C3AED] hover:text-white">
-                  +
-                </div>
               </div>
             )}
           </div>
 
-          {/* Track 3: Audio (Glowing Violet Waveform) */}
+          {/* Track 2: Video (Real Filmstrip Thumbnails) */}
+          <div className="relative flex h-12 items-center border-b border-[#262330]/40 px-2 overflow-hidden">
+            {trackVisibility.video && (
+              <div className="flex items-center gap-1 w-full">
+                {realThumbnails.length > 0 ? (
+                  realThumbnails.map((thumb, idx) => (
+                    <div
+                      key={idx}
+                      className="h-9 w-16 shrink-0 overflow-hidden rounded-md border border-[#262330] bg-black"
+                    >
+                      <img
+                        src={thumb}
+                        alt="video frame"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex h-9 w-full items-center justify-center rounded-md border border-[#262330] bg-[#1A1722]/50 text-[10px] text-[#A19EAA]">
+                    Active Video Track ({totalDuration.toFixed(1)}s)
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Track 3: Audio (Real Normalized Waveform Peaks) */}
           <div className="relative flex h-11 items-center px-2">
             {trackVisibility.audio && (
-              <div className="flex h-7 w-full items-center rounded-lg bg-[#1A1722]/60 px-2">
-                <svg
-                  className="h-5 w-full text-[#7C3AED]"
-                  viewBox="0 0 500 40"
-                  preserveAspectRatio="none"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                >
-                  <path d="M0,20 Q20,5 40,20 T80,20 T120,5 T160,35 T200,10 T240,30 T280,5 T320,35 T360,15 T400,25 T440,8 T480,32 T500,20" />
-                  <path d="M0,20 Q20,12 40,20 T80,20 T120,14 T160,26 T200,15 T240,25 T280,14 T320,26 T360,17 T400,23 T440,15 T480,25 T500,20" opacity="0.6" />
-                </svg>
+              <div className="flex h-7 w-full items-center rounded-lg bg-[#1A1722]/60 px-2 overflow-hidden">
+                {realWaveformPeaks.length > 0 ? (
+                  <div className="flex h-5 w-full items-center justify-between gap-[2px]">
+                    {realWaveformPeaks.slice(0, 120).map((peak, idx) => (
+                      <div
+                        key={idx}
+                        className="w-1 rounded-full bg-[#7C3AED]"
+                        style={{ height: `${Math.max(15, peak * 100)}%` }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <svg
+                    className="h-4 w-full text-[#7C3AED]/70"
+                    viewBox="0 0 500 40"
+                    preserveAspectRatio="none"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M0,20 Q20,5 40,20 T80,20 T120,5 T160,35 T200,10 T240,30 T280,5 T320,35 T360,15 T400,25 T440,8 T480,32 T500,20" />
+                  </svg>
+                )}
               </div>
             )}
           </div>
 
-          {/* Vertical Glowing Playhead Line */}
+          {/* Vertical Playhead Line */}
           <div
             className="pointer-events-none absolute bottom-0 top-0 z-30 -translate-x-1/2 flex flex-col items-center"
             style={{ left: `${playheadPct}%` }}
           >
-            {/* Playhead Handle Top */}
             <div className="h-3 w-3 rounded-full bg-white shadow-md shadow-black" />
-            {/* Playhead Line */}
             <div className="h-full w-[2px] bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
           </div>
         </div>
@@ -361,7 +362,7 @@ export function BottomTimeline({
       <div className="absolute bottom-3 right-4 z-40">
         <button
           type="button"
-          onClick={() => toast.info("SnipPug Help: Drop any video, trim, and customize captions!")}
+          onClick={onOpenHelp}
           className="flex items-center gap-1.5 rounded-full border border-[#262330] bg-[#1A1722] px-3 py-1.5 text-xs font-medium text-white shadow-xl transition-all hover:border-[#7C3AED]/50 hover:bg-[#262330]"
         >
           <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#262330] text-[10px] text-[#A19EAA]">

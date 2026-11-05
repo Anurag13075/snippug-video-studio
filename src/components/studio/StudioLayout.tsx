@@ -8,6 +8,8 @@ import { LeftSidebar } from "./LeftSidebar";
 import { CenterCanvas } from "./CenterCanvas";
 import { RightSidebar } from "./RightSidebar";
 import { BottomTimeline } from "./BottomTimeline";
+import { AutoClipModal } from "./AutoClipModal";
+import { BrandKitModal } from "./BrandKitModal";
 import { useStudioState, drawComposed } from "./useStudioState";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
 
@@ -44,7 +46,7 @@ export function StudioLayout() {
       try {
         const aspectCfg = state.aspectCfg;
         const resMultiplier =
-          state.resolution === "4K" ? 2 : state.resolution === "1080p" ? 1.5 : 1;
+          state.resolution === "4K" && isPro ? 2 : state.resolution === "1080p" ? 1.5 : 1;
         const W = Math.round(aspectCfg.w * resMultiplier);
         const H = Math.round(aspectCfg.h * resMultiplier);
 
@@ -122,13 +124,14 @@ export function StudioLayout() {
         await v.play();
 
         const activeCaption = captionOverride ?? state.caption;
-        const hasWatermark = isPro ? false : state.exportConfig.watermark;
+        // Watermark is applied ONLY for free users
+        const hasWatermark = !isPro;
 
         await new Promise<void>((res) => {
           let raf = 0;
           const step = () => {
             const curTime = v.currentTime;
-            drawComposed(c2d, v, W, H, targetAspect, activeCaption, hasWatermark);
+            drawComposed(c2d, v, W, H, targetAspect, activeCaption, hasWatermark, state.brandKit);
             const p = Math.min(
               1,
               Math.max(0, (curTime - inTime) / (outTime - inTime)),
@@ -164,7 +167,7 @@ export function StudioLayout() {
         setTimeout(() => URL.revokeObjectURL(url), 10000);
 
         play("fanfare");
-        toast.success("Export complete! Video downloaded 🎉");
+        toast.success("Export complete! Video downloaded on device 🎉");
         return true;
       } catch (err) {
         console.error("Export failed:", err);
@@ -198,15 +201,18 @@ export function StudioLayout() {
         exporting={state.exporting}
       />
 
-      {/* ── Main Workspace Body (Sidebar, Media Bin, Center Canvas, Inspector) ── */}
+      {/* ── Main Workspace Body ── */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Far-Left Nav Rail (Home, My Projects, Templates, Brand Kit, Settings, Go Pro, More Tools, User) */}
+        {/* Far-Left Nav Rail */}
         <StudioNavRail
           activeTab={state.activeNavTab}
           onTabChange={state.setActiveNavTab}
+          onOpenBrandKit={() => state.setBrandKitModalOpen(true)}
+          onRunAutoClip={state.handleRunAutoClip}
+          onTranscribe={() => state.handleTranscribe()}
         />
 
-        {/* Left Workspace Panel (Tabs: Media, Text, Elements, Audio, Uploads; Dropzone; Your Media) */}
+        {/* Left Workspace Panel */}
         <LeftSidebar
           activeTab={state.leftSidebarTab}
           onTabChange={state.setLeftSidebarTab}
@@ -214,9 +220,15 @@ export function StudioLayout() {
           selectedMediaId={state.selectedMediaId}
           onSelectMedia={state.selectMediaItem}
           onFileUpload={state.loadFile}
+          words={state.transcript?.words}
+          currentTime={state.time}
+          onSeek={state.seekTo}
+          onDeleteWords={state.deleteWords}
+          silenceRanges={state.silenceRanges}
+          onCutSilence={state.cutSilence}
         />
 
-        {/* Center Preview Player (9:16 vertical phone, aspect badge, resolution, play overlay, transport) */}
+        {/* Center Preview Player */}
         <CenterCanvas
           src={state.src}
           videoRef={state.videoRef}
@@ -236,7 +248,7 @@ export function StudioLayout() {
           seekTo={state.seekTo}
         />
 
-        {/* Right Inspector Panel (Captions, Style, Effects, Adjust; Auto Captions; Language; 8 Presets; Font; Size; Color; Position) */}
+        {/* Right Inspector Panel */}
         <RightSidebar
           caption={state.caption}
           setCaption={state.setCaption}
@@ -251,7 +263,7 @@ export function StudioLayout() {
         />
       </div>
 
-      {/* ── Bottom Multi-Track Timeline (Toolbar, Ruler, 3 Tracks: Captions, Video, Audio, Need Help) ── */}
+      {/* ── Bottom Multi-Track Timeline ── */}
       <BottomTimeline
         duration={state.duration}
         time={state.time}
@@ -262,6 +274,27 @@ export function StudioLayout() {
         trackVisibility={state.trackVisibility}
         onToggleTrack={state.toggleTrackVisibility}
         captionSegments={state.captionSegments}
+        realThumbnails={state.realThumbnails}
+        realWaveformPeaks={state.realWaveformPeaks}
+        onOpenHelp={() =>
+          toast.info("SnipPug Studio: Drop any video, trim with I/O or slider, then Export Video!")
+        }
+      />
+
+      {/* ── Modals ── */}
+      <AutoClipModal
+        isOpen={state.autoClipModalOpen}
+        onClose={() => state.setAutoClipModalOpen(false)}
+        clips={state.autoClips}
+        onApplyClips={state.applyAutoClips}
+        onSeekTo={state.seekTo}
+        duration={state.duration}
+      />
+
+      <BrandKitModal
+        isOpen={state.brandKitModalOpen}
+        onClose={() => state.setBrandKitModalOpen(false)}
+        onApply={state.setBrandKit}
       />
     </div>
   );
